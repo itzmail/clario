@@ -242,15 +242,15 @@ Selalu relate Rust concepts ke bahasa yang familiar:
 ## 📋 **Current Todo List**
 
 ### **Phase 1: Foundation Setup**
-1. **🔄 IN_PROGRESS**: Setup Cargo.toml dengan dependencies
-2. **⏳ PENDING**: Create module structure sesuai architecture
-3. **⏳ PENDING**: Basic App struct untuk state management
-4. **⏳ PENDING**: Simple TUI event loop dengan ratatui
+1. **✅ COMPLETED**: Setup Cargo.toml dengan dependencies
+2. **✅ COMPLETED**: Create module structure sesuai architecture
+3. **✅ COMPLETED**: Basic App struct untuk state management
+4. **✅ COMPLETED**: Simple TUI event loop dengan ratatui
 
 ### **Phase 2: Core Implementation** 
-5. **⏳ PENDING**: Dashboard layout implementation
-6. **⏳ PENDING**: Keyboard navigation system
-7. **⏳ PENDING**: File scanning basic functionality
+5. **✅ COMPLETED**: Dashboard layout implementation
+6. **✅ COMPLETED**: Keyboard navigation system
+7. **🔄 IN_PROGRESS**: File scanning basic functionality
 
 ### **Phase 3: Advanced Features**
 8. **⏳ PENDING**: Application detection logic

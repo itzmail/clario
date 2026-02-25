@@ -14,15 +14,16 @@ tokio = { version = "1.49.0", features = [
   "macros",
   "fs",
   "io-std",
-  "time"
-] } 
+  "time",
+] }
 walkdir = "2.5.0"
 serde = { version = "1.0.228", features = ["derive"] }
+dirs = "6.0.0"
 
 # Serialization formats
 anyhow = "1.0.100"
 chrono = { version = "0.4.43", features = ["serde"] }
-uuid = { version = "1.20.0", features=["v4", "serde"] }
+uuid = { version = "1.20.0", features = ["v4", "serde"] }
 
 [dev-dependencies]
 tokio-test = "0.4.5"
