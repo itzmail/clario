@@ -168,9 +168,11 @@ pub fn draw_dashboard(
         Line::from(vec![
             Span::raw("  "),
             Span::raw(m2_prefix),
-            Span::styled("🗑️  [u] Uninstall Applications", m2_style),
+            Span::styled("📦 [u] Deep App Uninstaller", m2_style),
         ]),
-        Line::from(format!("      15 apps, 3 unused, 524MB total size").fg(theme.muted_text())),
+        Line::from(
+            format!("      Eradicate applications & hidden library junk").fg(theme.muted_text()),
+        ),
         Line::from(""),
         Line::from(vec![
             Span::raw("  "),
@@ -231,6 +233,8 @@ pub fn draw_dashboard(
         "Quit  ".fg(theme.muted_text()),
         " [f] ".fg(theme.primary()).bold(),
         "File Manager  ".fg(theme.muted_text()),
+        " [u] ".fg(theme.secondary()).bold(),
+        "Uninstaller  ".fg(theme.muted_text()),
         " [s] ".fg(theme.accent()).bold(),
         "Settings  ".fg(theme.muted_text()),
         " [↑↓] ".fg(theme.safe()).bold(),

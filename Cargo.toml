@@ -27,6 +27,7 @@ uuid = { version = "1.20.0", features = ["v4", "serde"] }
 sysinfo = "0.38.2"
 zip = "8.1.0"
 serde_json = "1.0.149"
+plist = "1.8.0"
 
 [dev-dependencies]
 tokio-test = "0.4.5"

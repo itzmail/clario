@@ -33,7 +33,26 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                         });
                     }
                 }
-                1 => (),
+                1 => {
+                    // Pindah UI ke App Uninstaller
+                    app.mode = AppMode::AppUninstaller;
+
+                    // Kickoff scan hanya jika belum ada data apps yang di-cache
+                    if app.apps.is_empty() && !app.is_scanning {
+                        app.is_scanning = true;
+                        app.scan_progress_text = String::new();
+                        let (tx, rx) = mpsc::channel();
+                        app.scan_rx = Some(rx);
+
+                        tokio::task::spawn_blocking(move || {
+                            let scanned_apps =
+                                crate::core::app_scanner::AppScanner::scan_applications(tx.clone());
+                            let _ = tx.send(crate::models::file_info::ScanEvent::FinishedApps(
+                                scanned_apps,
+                            ));
+                        });
+                    }
+                }
                 2 => app.mode = AppMode::Settings,
                 _ => {}
             }

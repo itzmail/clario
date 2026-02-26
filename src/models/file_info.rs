@@ -4,6 +4,7 @@ use std::path::PathBuf;
 pub enum ScanEvent {
     Progress(String),        // Mengirim nama folder yang sedang dipindai
     Finished(Vec<FileInfo>), // Mengirim hasil akhir seluruh pindaian
+    FinishedApps(Vec<crate::models::app_info::AppInfo>), // Mengirim hasil akhir Apps
 }
 
 /// Menandakan apakah file ini berbahaya untuk dihapus atau tidak.

@@ -2,8 +2,8 @@ use crate::handlers;
 use crate::models::config::AppConfig;
 use crate::models::file_info::FileInfo;
 use crate::ui::{
-    components::draw_exit_modal, dashboard::draw_dashboard, file_manager::draw_file_manager,
-    settings::draw_settings,
+    app_uninstaller::draw_app_uninstaller, components::draw_exit_modal, dashboard::draw_dashboard,
+    file_manager::draw_file_manager, settings::draw_settings,
 };
 use crossterm::event::{poll, read, Event, KeyCode};
 use crossterm::{
@@ -42,6 +42,12 @@ pub struct App {
     pub dir_picker_selected: usize,
     pub show_exit_confirm: bool,
     pub exit_confirm_selected: u8, // 0 = Yes, 1 = Wait
+
+    // Fitur App Uninstaller
+    pub apps: Vec<crate::models::app_info::AppInfo>,
+    pub selected_app_index: usize,
+    pub app_table_state: TableState,
+    pub related_files_state: TableState,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -50,6 +56,7 @@ pub enum AppMode {
     Dashboard,
     FileManager,
     Settings,
+    AppUninstaller,
 }
 
 impl App {
@@ -81,6 +88,10 @@ impl App {
             dir_picker_selected: 0,
             show_exit_confirm: false,
             exit_confirm_selected: 1, // Default focus on "Wait, not yet"
+            apps: Vec::new(),
+            selected_app_index: 0,
+            app_table_state: TableState::default(),
+            related_files_state: TableState::default(),
         }
     }
 
@@ -103,7 +114,14 @@ impl App {
                             self.scanned_files = files;
                             self.is_scanning = false;
                             self.scan_rx = None;
-                            self.file_table_state.select(Some(0)); // Pilih baris pertama secara default
+                            self.file_table_state.select(Some(0));
+                            break;
+                        }
+                        crate::models::file_info::ScanEvent::FinishedApps(apps) => {
+                            self.apps = apps;
+                            self.is_scanning = false;
+                            self.scan_rx = None;
+                            self.app_table_state.select(Some(0));
                             break;
                         }
                     }
@@ -115,16 +133,28 @@ impl App {
                 while let Ok(msg) = rx.try_recv() {
                     match msg {
                         Some(text) => {
-                            self.scan_progress_text = text; // Pinjam text progress untuk nampilin path yg dihapus
+                            self.scan_progress_text = text;
                         }
                         None => {
                             // Finish Deleting
                             self.is_deleting = false;
                             self.show_delete_confirm = false;
                             self.delete_rx = None;
-                            crate::core::file_ops::FileOps::retain_unselected(
-                                &mut self.scanned_files,
-                            );
+
+                            // Bersihkan data sesuai mode saat ini
+                            if self.mode == AppMode::AppUninstaller {
+                                // Hapus AppInfo yang sudah di-uninstall dari list
+                                self.apps.retain(|a| !a.is_selected);
+                                // Reset index agar tidak out-of-bounds
+                                if self.selected_app_index >= self.apps.len() {
+                                    self.selected_app_index = self.apps.len().saturating_sub(1);
+                                }
+                                self.app_table_state.select(Some(self.selected_app_index));
+                            } else {
+                                crate::core::file_ops::FileOps::retain_unselected(
+                                    &mut self.scanned_files,
+                                );
+                            }
                             break;
                         }
                     }
@@ -197,6 +227,9 @@ impl App {
                         );
                     }
                     AppMode::Settings => draw_settings(f, self),
+                    AppMode::AppUninstaller => {
+                        draw_app_uninstaller(f, self);
+                    }
                 }
 
                 // Draw Exit Modal ON TOP of everything if requested
@@ -248,6 +281,28 @@ impl App {
                             self.mode = AppMode::FileManager;
                             continue;
                         }
+                        KeyCode::Char('u') => {
+                            self.mode = AppMode::AppUninstaller;
+                            // Kickoff the uninstaller thread load
+                            if self.apps.is_empty() && !self.is_scanning {
+                                self.is_scanning = true;
+                                self.scan_progress_text = String::new();
+                                let (tx, rx) = mpsc::channel();
+                                self.scan_rx = Some(rx);
+
+                                tokio::task::spawn_blocking(move || {
+                                    let scanned_apps =
+                                        crate::core::app_scanner::AppScanner::scan_applications(
+                                            tx.clone(),
+                                        );
+                                    let _ =
+                                        tx.send(crate::models::file_info::ScanEvent::FinishedApps(
+                                            scanned_apps,
+                                        ));
+                                });
+                            }
+                            continue;
+                        }
                         KeyCode::Char('s') => {
                             self.mode = AppMode::Settings;
                             continue;
@@ -265,6 +320,7 @@ impl App {
                         AppMode::Dashboard => handlers::dashboard::handle_key(self, key),
                         AppMode::FileManager => handlers::file_manager::handle_key(self, key),
                         AppMode::Settings => handlers::settings::handle_key(self, key),
+                        AppMode::AppUninstaller => handlers::app_uninstaller::handle_key(self, key),
                     }
                 }
             }

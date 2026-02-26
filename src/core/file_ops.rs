@@ -1,5 +1,4 @@
 use crate::models::file_info::FileInfo;
-use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use zip::write::{ExtendedFileOptions, FileOptions};
