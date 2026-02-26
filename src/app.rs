@@ -1,9 +1,10 @@
-use crate::core::file_scanner::FileScanner;
+use crate::handlers;
+use crate::models::config::AppConfig;
 use crate::models::file_info::FileInfo;
 use crate::ui::{
-    dashboard::draw_dashboard, file_manager::draw_file_manager, settings::draw_settings,
+    components::draw_exit_modal, dashboard::draw_dashboard, file_manager::draw_file_manager,
+    settings::draw_settings,
 };
-use crate::utils::platform;
 use crossterm::event::{poll, read, Event, KeyCode};
 use crossterm::{
     execute,
@@ -12,16 +13,35 @@ use crossterm::{
 use ratatui::{backend::CrosstermBackend, widgets::TableState, Terminal};
 use std::sync::mpsc;
 use std::time::Duration;
+use std::time::Instant;
 
 pub struct App {
-    should_quit: bool,
-    mode: AppMode,
+    pub should_quit: bool,
+    pub mode: AppMode,
     pub selected_menu: usize,
     pub scanned_files: Vec<FileInfo>,
     pub is_scanning: bool,
-    pub scan_rx: Option<mpsc::Receiver<Vec<FileInfo>>>,
+    pub scan_progress_text: String,
+    pub scan_rx: Option<mpsc::Receiver<crate::models::file_info::ScanEvent>>,
     pub file_table_state: TableState,
     pub show_delete_confirm: bool,
+    pub delete_confirm_selected: u8, // 0 = Confirm, 1 = Cancel
+    pub is_deleting: bool,           // True jika sedang dlm proses hapus data di background
+    pub delete_rx: Option<mpsc::Receiver<Option<String>>>,
+    pub show_archive_confirm: bool,
+    pub archive_confirm_selected: u8, // 0 = Confirm, 1 = Cancel
+    pub is_archiving: bool,
+    pub archive_rx: Option<mpsc::Receiver<Option<String>>>,
+    pub sys: sysinfo::System,
+    pub last_sys_refresh: Instant,
+    pub config: AppConfig,
+    pub settings_selected_index: usize,
+    pub is_dir_picker_open: bool,
+    pub dir_picker_path: std::path::PathBuf,
+    pub dir_picker_items: Vec<FileInfo>,
+    pub dir_picker_selected: usize,
+    pub show_exit_confirm: bool,
+    pub exit_confirm_selected: u8, // 0 = Yes, 1 = Wait
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -40,9 +60,27 @@ impl App {
             selected_menu: 0,
             scanned_files: Vec::new(),
             is_scanning: false,
+            scan_progress_text: String::new(),
             scan_rx: None,
             file_table_state: TableState::default(),
             show_delete_confirm: false,
+            delete_confirm_selected: 1,
+            is_deleting: false,
+            delete_rx: None,
+            show_archive_confirm: false,
+            archive_confirm_selected: 1,
+            is_archiving: false,
+            archive_rx: None,
+            sys: sysinfo::System::new_all(),
+            last_sys_refresh: Instant::now(),
+            config: AppConfig::load(),
+            settings_selected_index: 0,
+            is_dir_picker_open: false,
+            dir_picker_path: dirs::home_dir().unwrap_or_else(|| std::path::PathBuf::from("/")),
+            dir_picker_items: Vec::new(),
+            dir_picker_selected: 0,
+            show_exit_confirm: false,
+            exit_confirm_selected: 1, // Default focus on "Wait, not yet"
         }
     }
 
@@ -54,162 +92,179 @@ impl App {
         let mut terminal = Terminal::new(backend)?;
 
         while !self.should_quit {
-            // Menerima hasil scan dari background thread secara instan (non-blocking)
+            // Menerima stream scanning events dari background thread secara instan (non-blocking)
             if let Some(rx) = &mut self.scan_rx {
-                if let Ok(files) = rx.try_recv() {
-                    self.scanned_files = files;
-                    self.is_scanning = false;
-                    self.scan_rx = None;
-                    self.file_table_state.select(Some(0)); // Pilih baris pertama secara default
+                while let Ok(event) = rx.try_recv() {
+                    match event {
+                        crate::models::file_info::ScanEvent::Progress(text) => {
+                            self.scan_progress_text = text;
+                        }
+                        crate::models::file_info::ScanEvent::Finished(files) => {
+                            self.scanned_files = files;
+                            self.is_scanning = false;
+                            self.scan_rx = None;
+                            self.file_table_state.select(Some(0)); // Pilih baris pertama secara default
+                            break;
+                        }
+                    }
                 }
             }
 
-            // Render UI sesuai mode
-            terminal.draw(|f| match self.mode {
-                AppMode::Dashboard => {
-                    draw_dashboard::<CrosstermBackend<std::io::Stdout>>(f, self.selected_menu)
+            // Menerima signal stream dari thread deletion di background
+            if let Some(ref mut rx) = self.delete_rx {
+                while let Ok(msg) = rx.try_recv() {
+                    match msg {
+                        Some(text) => {
+                            self.scan_progress_text = text; // Pinjam text progress untuk nampilin path yg dihapus
+                        }
+                        None => {
+                            // Finish Deleting
+                            self.is_deleting = false;
+                            self.show_delete_confirm = false;
+                            self.delete_rx = None;
+                            crate::core::file_ops::FileOps::retain_unselected(
+                                &mut self.scanned_files,
+                            );
+                            break;
+                        }
+                    }
                 }
-                AppMode::FileManager => draw_file_manager::<CrosstermBackend<std::io::Stdout>>(
-                    f,
-                    &self.scanned_files,
-                    self.is_scanning,
-                    &mut self.file_table_state,
-                    self.show_delete_confirm,
-                ),
-                AppMode::Settings => draw_settings::<CrosstermBackend<std::io::Stdout>>(f),
+            }
+
+            // Menerima signal stream dari thread archive di background
+            if let Some(ref mut rx) = self.archive_rx {
+                while let Ok(msg) = rx.try_recv() {
+                    match msg {
+                        Some(text) => {
+                            self.scan_progress_text = text; // Update UI ZIP path
+                        }
+                        None => {
+                            // Finish Archiving
+                            self.is_archiving = false;
+                            self.show_archive_confirm = false;
+                            self.archive_rx = None;
+                            crate::core::file_ops::FileOps::retain_unselected(
+                                &mut self.scanned_files,
+                            );
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Handle Sysinfo Throttling Rate Limit (refresh disk+ram stat every 2 secs)
+            if self.last_sys_refresh.elapsed() >= std::time::Duration::from_secs(2) {
+                self.sys.refresh_all();
+                self.last_sys_refresh = Instant::now();
+            }
+
+            // Render UI sesuai mode
+            terminal.draw(|f| {
+                match self.mode {
+                    AppMode::Dashboard => {
+                        draw_dashboard(f, self.selected_menu, &self.sys, &self.config.theme)
+                    }
+                    AppMode::FileManager => {
+                        // Render indikator scanner progress di UI saat mode scan
+                        if self.scanned_files.is_empty() && !self.is_scanning {
+                            self.is_scanning = true;
+
+                            let (tx, rx) = mpsc::channel();
+                            self.scan_rx = Some(rx);
+
+                            // Kirim job scanning raksasa (berat) ke background IO thread agar layout UI tetep gesit
+                            let threshold = self.config.safety_threshold_days;
+                            tokio::task::spawn_blocking(move || {
+                                let targets = crate::utils::platform::get_scan_targets();
+                                crate::core::file_scanner::FileScanner::scan_targets(
+                                    &targets, threshold, tx,
+                                );
+                            });
+                        }
+                        draw_file_manager(
+                            f,
+                            &self.scanned_files,
+                            self.is_scanning,
+                            &self.scan_progress_text,
+                            &mut self.file_table_state,
+                            self.show_delete_confirm,
+                            self.delete_confirm_selected,
+                            self.is_deleting,
+                            self.show_archive_confirm,
+                            self.archive_confirm_selected,
+                            self.is_archiving,
+                            &self.config.theme,
+                        );
+                    }
+                    AppMode::Settings => draw_settings(f, self),
+                }
+
+                // Draw Exit Modal ON TOP of everything if requested
+                if self.show_exit_confirm {
+                    draw_exit_modal(f, self.exit_confirm_selected, &self.config.theme);
+                }
             })?;
 
             if poll(Duration::from_millis(100))? {
                 if let Event::Key(key) = read()? {
+                    // 1. Intercept keys if Global Exit Modal is active
+                    if self.show_exit_confirm {
+                        match key.code {
+                            KeyCode::Esc | KeyCode::Char('q') => {
+                                self.show_exit_confirm = false;
+                                self.exit_confirm_selected = 1; // reset ke "Wait"
+                            }
+                            KeyCode::Left
+                            | KeyCode::Right
+                            | KeyCode::Char('h')
+                            | KeyCode::Char('l') => {
+                                // Toggle antara 0 (Yes) dan 1 (No)
+                                self.exit_confirm_selected = 1 - self.exit_confirm_selected;
+                            }
+                            KeyCode::Enter => {
+                                if self.exit_confirm_selected == 0 {
+                                    self.should_quit = true;
+                                } else {
+                                    self.show_exit_confirm = false;
+                                }
+                            }
+                            _ => {} // Abaikan input lain selama modal terbuka
+                        }
+                        continue; // Skip the rest of event handling
+                    }
+
+                    // 2. Global mode switching hotkeys
                     match key.code {
-                        KeyCode::Char('q') => self.should_quit = true, // Tekan 'q' untuk keluar
-                        KeyCode::Char('f') => self.mode = AppMode::FileManager, // 'f' untuk FileManager
-                        KeyCode::Char('s') => self.mode = AppMode::Settings, // 's' untuk Settings
+                        KeyCode::Char('q') => {
+                            if self.mode == AppMode::Dashboard {
+                                self.should_quit = true;
+                            } else {
+                                self.show_exit_confirm = true;
+                                self.exit_confirm_selected = 1; // Focus "Wait, not yet" default
+                            }
+                            continue;
+                        }
+                        KeyCode::Char('f') => {
+                            self.mode = AppMode::FileManager;
+                            continue;
+                        }
+                        KeyCode::Char('s') => {
+                            self.mode = AppMode::Settings;
+                            continue;
+                        }
                         KeyCode::Char('d') => {
                             self.mode = AppMode::Dashboard;
                             self.selected_menu = 0;
-                        }
-                        KeyCode::Down | KeyCode::Char('j') => {
-                            if self.mode == AppMode::Dashboard {
-                                self.selected_menu = (self.selected_menu + 1) % 3;
-                            } else if self.mode == AppMode::FileManager {
-                                // Scroll ke bawah pada tabel
-                                if let Some(selected) = self.file_table_state.selected() {
-                                    self.file_table_state
-                                        .select(Some(selected.saturating_add(1)));
-                                } else {
-                                    self.file_table_state.select(Some(0));
-                                }
-                            }
-                        }
-                        KeyCode::Up | KeyCode::Char('k') => {
-                            if self.mode == AppMode::Dashboard {
-                                if self.selected_menu == 0 {
-                                    self.selected_menu = 2;
-                                } else {
-                                    self.selected_menu -= 1;
-                                }
-                            } else if self.mode == AppMode::FileManager {
-                                // Scroll ke atas pada tabel
-                                if let Some(selected) = self.file_table_state.selected() {
-                                    self.file_table_state
-                                        .select(Some(selected.saturating_sub(1)));
-                                }
-                            }
-                        }
-                        // Navigasi masuk/expand folder
-                        KeyCode::Right | KeyCode::Char('l') => {
-                            if self.mode == AppMode::FileManager && !self.show_delete_confirm {
-                                if let Some(selected) = self.file_table_state.selected() {
-                                    let mut count = 0;
-                                    Self::toggle_recursive(
-                                        &mut self.scanned_files,
-                                        selected,
-                                        &mut count,
-                                        ToggleAction::Expand,
-                                    );
-                                }
-                            }
-                        }
-                        // Konfirmasi Pilihan Menu (Enter)
-                        KeyCode::Enter => {
-                            if self.mode == AppMode::Dashboard {
-                                match self.selected_menu {
-                                    0 => {
-                                        // Pindah UI ke File Manager
-                                        self.mode = AppMode::FileManager;
-
-                                        // Jalankan scan menggunakan background thread agar TUI tidak nge-freeze (loading screen tampil)!
-                                        if self.scanned_files.is_empty() && !self.is_scanning {
-                                            self.is_scanning = true;
-                                            let (tx, rx) = mpsc::channel();
-                                            self.scan_rx = Some(rx);
-                                            let targets = platform::get_scan_targets();
-
-                                            // Spawn tokio background task thread
-                                            tokio::task::spawn_blocking(move || {
-                                                let results = FileScanner::scan_targets(&targets);
-                                                let _ = tx.send(results);
-                                            });
-                                        }
-                                    }
-                                    1 => (),
-                                    2 => self.mode = AppMode::Settings,
-                                    _ => {}
-                                }
-                            } else if self.mode == AppMode::FileManager {
-                                // Enter juga berfungsi sebagai expand folder kalau di dalam file manager
-                                if self.show_delete_confirm {
-                                    self.execute_deletion();
-                                    self.show_delete_confirm = false;
-                                } else {
-                                    if let Some(selected) = self.file_table_state.selected() {
-                                        let mut count = 0;
-                                        Self::toggle_recursive(
-                                            &mut self.scanned_files,
-                                            selected,
-                                            &mut count,
-                                            ToggleAction::Expand,
-                                        );
-                                    }
-                                }
-                            }
-                        }
-                        // Seleksi File & Deletion Intercept
-                        KeyCode::Char(' ') => {
-                            if self.mode == AppMode::FileManager && !self.show_delete_confirm {
-                                if let Some(selected) = self.file_table_state.selected() {
-                                    let mut count = 0;
-                                    Self::toggle_recursive(
-                                        &mut self.scanned_files,
-                                        selected,
-                                        &mut count,
-                                        ToggleAction::Select,
-                                    );
-                                }
-                            }
-                        }
-                        KeyCode::Char('x') | KeyCode::Delete | KeyCode::Backspace => {
-                            if self.mode == AppMode::FileManager && !self.show_delete_confirm {
-                                if Self::has_any_selected(&self.scanned_files) {
-                                    self.show_delete_confirm = true;
-                                }
-                            }
-                        }
-                        KeyCode::Char('y') => {
-                            if self.mode == AppMode::FileManager && self.show_delete_confirm {
-                                self.execute_deletion();
-                                self.show_delete_confirm = false;
-                            }
-                        }
-                        KeyCode::Char('n') | KeyCode::Esc => {
-                            if self.mode == AppMode::FileManager && self.show_delete_confirm {
-                                self.show_delete_confirm = false;
-                            } else if key.code == KeyCode::Esc {
-                                self.should_quit = true; // Fallback umum
-                            }
+                            continue;
                         }
                         _ => {}
+                    }
+
+                    // 3. Menyerahkan event handling ke modul handlers spesifik berdasarkan mode
+                    match self.mode {
+                        AppMode::Dashboard => handlers::dashboard::handle_key(self, key),
+                        AppMode::FileManager => handlers::file_manager::handle_key(self, key),
+                        AppMode::Settings => handlers::settings::handle_key(self, key),
                     }
                 }
             }
@@ -218,96 +273,4 @@ impl App {
         execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
         Ok(())
     }
-
-    /// Helper untuk mencari baris layar ke-N pada Flattened View lalu membalik state `is_expanded`-nya
-    fn toggle_recursive(
-        files: &mut [FileInfo],
-        target_index: usize,
-        current_index: &mut usize,
-        action: ToggleAction,
-    ) -> bool {
-        for file in files.iter_mut() {
-            if *current_index == target_index {
-                match action {
-                    ToggleAction::Expand => file.is_expanded = !file.is_expanded,
-                    ToggleAction::Select => {
-                        file.is_selected = !file.is_selected;
-                        // Jika parent dipilih, anak-anaknya semua ikut dipilih
-                        if file.is_dir {
-                            Self::set_selection_all(&mut file.children, file.is_selected);
-                        }
-                    }
-                }
-                return true;
-            }
-            *current_index += 1;
-
-            // Jika folder dan sedang dibuka (expanded), anak-anaknya otomatis dihitung indexnya!
-            if file.is_expanded && file.is_dir {
-                if Self::toggle_recursive(&mut file.children, target_index, current_index, action) {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    fn has_any_selected(files: &[FileInfo]) -> bool {
-        for f in files {
-            if f.is_selected {
-                return true;
-            }
-            if f.is_expanded && f.is_dir {
-                if Self::has_any_selected(&f.children) {
-                    return true;
-                }
-            }
-        }
-        false
-    }
-
-    fn set_selection_all(files: &mut [FileInfo], checked: bool) {
-        for f in files.iter_mut() {
-            f.is_selected = checked;
-            if f.is_dir {
-                Self::set_selection_all(&mut f.children, checked);
-            }
-        }
-    }
-
-    fn execute_deletion(&mut self) {
-        // Hapus fisik via std::fs
-        Self::delete_selected_recursive(&mut self.scanned_files);
-        // Hapus dari list memory (UI)
-        Self::retain_unselected(&mut self.scanned_files);
-    }
-
-    fn delete_selected_recursive(files: &mut [FileInfo]) {
-        for f in files.iter_mut() {
-            if f.is_selected {
-                if f.is_dir {
-                    let _ = std::fs::remove_dir_all(&f.path);
-                } else {
-                    let _ = std::fs::remove_file(&f.path);
-                }
-            } else if f.is_dir {
-                Self::delete_selected_recursive(&mut f.children);
-            }
-        }
-    }
-
-    fn retain_unselected(files: &mut Vec<FileInfo>) {
-        files.retain(|f| !f.is_selected);
-        for f in files.iter_mut() {
-            if f.is_dir {
-                Self::retain_unselected(&mut f.children);
-            }
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-enum ToggleAction {
-    Expand,
-    Select,
 }

@@ -1,6 +1,11 @@
 use chrono::{DateTime, Local};
 use std::path::PathBuf;
 
+pub enum ScanEvent {
+    Progress(String),        // Mengirim nama folder yang sedang dipindai
+    Finished(Vec<FileInfo>), // Mengirim hasil akhir seluruh pindaian
+}
+
 /// Menandakan apakah file ini berbahaya untuk dihapus atau tidak.
 /// Mirip Enum di Java, tapi ini versi Rust.
 #[derive(Debug, Clone, PartialEq)]

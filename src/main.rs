@@ -1,5 +1,6 @@
 mod app;
 mod core;
+mod handlers;
 mod models;
 mod ui;
 mod utils;
