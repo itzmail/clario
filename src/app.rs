@@ -45,6 +45,8 @@ pub struct App {
     pub show_exit_confirm: bool,
     pub exit_confirm_selected: u8, // 0 = Yes, 1 = Wait
 
+    pub pending_bytes_to_free: u64, // Bytes of selected items, set before delete/archive starts
+
     // Fitur App Uninstaller
     pub apps: Vec<crate::models::app_info::AppInfo>,
     pub selected_app_index: usize,
@@ -91,6 +93,7 @@ impl App {
             dir_picker_selected: 0,
             show_exit_confirm: false,
             exit_confirm_selected: 1, // Default focus on "Wait, not yet"
+            pending_bytes_to_free: 0,
             apps: Vec::new(),
             selected_app_index: 0,
             app_table_state: TableState::default(),
@@ -138,6 +141,22 @@ impl App {
                             self.delete_progress_text = text;
                         }
                         None => {
+                            // Record stats before removing items from memory
+                            self.config.stats.total_bytes_freed += self.pending_bytes_to_free;
+                            self.config.stats.last_clean_date = Some(chrono::Local::now());
+
+                            if self.mode == AppMode::AppUninstaller {
+                                self.config.stats.total_files_deleted +=
+                                    self.apps.iter().filter(|a| a.is_selected).count() as u64;
+                            } else {
+                                self.config.stats.total_files_deleted +=
+                                    crate::core::file_ops::FileOps::count_selected(
+                                        &self.scanned_files,
+                                    ) as u64;
+                            }
+                            self.config.save();
+                            self.pending_bytes_to_free = 0;
+
                             // Finish Deleting
                             self.is_deleting = false;
                             self.show_delete_confirm = false;
@@ -171,6 +190,16 @@ impl App {
                             self.archive_progress_text = text; // Update UI ZIP path
                         }
                         None => {
+                            // Record stats before removing items from memory
+                            self.config.stats.total_bytes_freed += self.pending_bytes_to_free;
+                            self.config.stats.total_files_deleted +=
+                                crate::core::file_ops::FileOps::count_selected(
+                                    &self.scanned_files,
+                                ) as u64;
+                            self.config.stats.last_clean_date = Some(chrono::Local::now());
+                            self.config.save();
+                            self.pending_bytes_to_free = 0;
+
                             // Finish Archiving
                             self.is_archiving = false;
                             self.show_archive_confirm = false;

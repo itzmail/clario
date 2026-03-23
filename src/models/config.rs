@@ -1,3 +1,4 @@
+use chrono::{DateTime, Local};
 use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -154,11 +155,20 @@ impl AppTheme {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CleanStats {
+    pub last_clean_date: Option<DateTime<Local>>,
+    pub total_files_deleted: u64,
+    pub total_bytes_freed: u64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     pub theme: AppTheme,
     pub archive_dir: PathBuf,
     pub safety_threshold_days: u32,
+    #[serde(default)]
+    pub stats: CleanStats,
 }
 
 impl Default for AppConfig {
@@ -168,6 +178,7 @@ impl Default for AppConfig {
             theme: AppTheme::TokyoNightDark,
             archive_dir: user_dirs.join("Clario_Archives"),
             safety_threshold_days: 7,
+            stats: CleanStats::default(),
         }
     }
 }

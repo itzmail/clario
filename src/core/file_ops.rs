@@ -221,4 +221,22 @@ impl FileOps {
             }
         }
     }
+
+    /// Recursively count selected files/folders in the tree
+    pub fn count_selected(files: &[FileInfo]) -> usize {
+        files
+            .iter()
+            .filter(|f| f.is_selected)
+            .map(|f| 1 + Self::count_selected(&f.children))
+            .sum()
+    }
+
+    /// Recursively sum bytes of selected files in the tree
+    pub fn sum_selected_bytes(files: &[FileInfo]) -> u64 {
+        files
+            .iter()
+            .filter(|f| f.is_selected)
+            .map(|f| f.size_bytes + Self::sum_selected_bytes(&f.children))
+            .sum()
+    }
 }
