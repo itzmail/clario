@@ -14,52 +14,46 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
             KeyCode::Left | KeyCode::Right | KeyCode::Char('h') | KeyCode::Char('l') => {
                 app.delete_confirm_selected = 1 - app.delete_confirm_selected;
             }
-            KeyCode::Enter => {
-                if app.delete_confirm_selected == 0 {
-                    app.pending_bytes_to_free = app
-                        .apps
-                        .iter()
-                        .filter(|a| a.is_selected)
-                        .map(|a| a.total_size_bytes)
-                        .sum();
-                    app.is_deleting = true;
-                    app.delete_progress_text = String::new();
+            // [Y/Enter] Confirm — sesuai label tombol, Y atau Enter selalu confirm
+            KeyCode::Enter | KeyCode::Char('y') => {
+                app.pending_bytes_to_free = app
+                    .apps
+                    .iter()
+                    .filter(|a| a.is_selected)
+                    .map(|a| a.total_size_bytes)
+                    .sum();
+                app.is_deleting = true;
+                app.delete_progress_text = String::new();
 
-                    // Kita bisa memakai execute_deletion milik mod lama yang sudah mumpuni (memproses array of Files),
-                    // Tapi di struct AppInfo aslinya berbeda.
-                    // Nanti kita akan extract files nya dan kirim ke worker.
-                    let (tx, rx) = mpsc::channel::<Option<String>>();
-                    app.delete_rx = Some(rx);
+                let (tx, rx) = mpsc::channel::<Option<String>>();
+                app.delete_rx = Some(rx);
 
-                    let mut delete_payload = Vec::new();
-                    // Ambil file yang terklik centang
-                    for app_obj in &app.apps {
-                        if app_obj.is_selected {
-                            // 1. Delete Root Bundle
-                            let mut info = crate::models::file_info::FileInfo::new(
-                                app_obj.name.clone(),
-                                app_obj.path.clone(),
-                                app_obj.app_size_bytes,
-                                true,
-                            );
-                            info.is_selected = true;
-                            delete_payload.push(info);
+                let mut delete_payload = Vec::new();
+                for app_obj in &app.apps {
+                    if app_obj.is_selected {
+                        // 1. Delete Root Bundle
+                        let mut info = crate::models::file_info::FileInfo::new(
+                            app_obj.name.clone(),
+                            app_obj.path.clone(),
+                            app_obj.app_size_bytes,
+                            true,
+                        );
+                        info.is_selected = true;
+                        delete_payload.push(info);
 
-                            // 2. Delete Relational Libraries
-                            for relation in &app_obj.related_files {
-                                let mut rel = relation.clone();
-                                rel.is_selected = true;
-                                delete_payload.push(rel);
-                            }
+                        // 2. Delete Relational Libraries
+                        for relation in &app_obj.related_files {
+                            let mut rel = relation.clone();
+                            rel.is_selected = true;
+                            delete_payload.push(rel);
                         }
                     }
+                }
 
-                    if !delete_payload.is_empty() {
-                        crate::core::file_ops::FileOps::execute_deletion(&delete_payload, tx);
-                    } else {
-                        // Tidak jadi ada yang dihapus (prevent stuck loader)
-                        let _ = tx.send(None);
-                    }
+                if !delete_payload.is_empty() {
+                    crate::core::file_ops::FileOps::execute_deletion(&delete_payload, tx);
+                } else {
+                    let _ = tx.send(None);
                 }
                 app.show_delete_confirm = false;
             }
