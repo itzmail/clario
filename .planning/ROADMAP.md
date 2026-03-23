@@ -66,6 +66,6 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. TUI Refactor & Architecture Cleanup | 3/3 | Complete | 2026-03-23 |
+| 1. TUI Refactor & Architecture Cleanup | 3/3 | Complete    | 2026-03-23 |
 | 2. Security — Process Monitor | 0/2 | Not started | - |
 | 3. Security — Vulnerability Audit | 0/2 | Not started | - |
