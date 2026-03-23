@@ -39,7 +39,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                 if app.delete_confirm_selected == 0 {
                     app.is_deleting = true;
                     // Reset text lama ke kosong saat inisiasi
-                    app.scan_progress_text = String::new();
+                    app.delete_progress_text = String::new();
                     let (tx, rx) = mpsc::channel::<Option<String>>();
                     app.delete_rx = Some(rx);
                     FileOps::execute_deletion(&app.scanned_files, tx);
@@ -48,7 +48,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
             } else if app.show_archive_confirm {
                 if app.archive_confirm_selected == 0 {
                     app.is_archiving = true;
-                    app.scan_progress_text = String::new();
+                    app.archive_progress_text = String::new();
                     let (tx, rx) = mpsc::channel::<Option<String>>();
                     app.archive_rx = Some(rx);
                     FileOps::execute_archiving(&app.scanned_files, tx);
@@ -86,14 +86,14 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         KeyCode::Char('y') => {
             if app.show_delete_confirm {
                 app.is_deleting = true;
-                app.scan_progress_text = String::new();
+                app.delete_progress_text = String::new();
                 let (tx, rx) = mpsc::channel::<Option<String>>();
                 app.delete_rx = Some(rx);
                 FileOps::execute_deletion(&app.scanned_files, tx);
                 app.show_delete_confirm = false;
             } else if app.show_archive_confirm {
                 app.is_archiving = true;
-                app.scan_progress_text = String::new();
+                app.archive_progress_text = String::new();
                 let (tx, rx) = mpsc::channel::<Option<String>>();
                 app.archive_rx = Some(rx);
                 FileOps::execute_archiving(&app.scanned_files, tx);
@@ -134,6 +134,13 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                     None => 0,
                 };
                 app.file_table_state.select(Some(i));
+            }
+        }
+        KeyCode::Char('r') => {
+            if !app.show_delete_confirm && !app.show_archive_confirm {
+                // Hapus data, maka app.rs akan otomatis men-trigger rescan di loop berikutnya
+                app.scanned_files.clear();
+                app.is_scanning = false;
             }
         }
         _ => {}

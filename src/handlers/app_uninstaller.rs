@@ -17,7 +17,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
             KeyCode::Enter => {
                 if app.delete_confirm_selected == 0 {
                     app.is_deleting = true;
-                    app.scan_progress_text = String::new();
+                    app.delete_progress_text = String::new();
 
                     // Kita bisa memakai execute_deletion milik mod lama yang sudah mumpuni (memproses array of Files),
                     // Tapi di struct AppInfo aslinya berbeda.
@@ -30,16 +30,20 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                     for app_obj in &app.apps {
                         if app_obj.is_selected {
                             // 1. Delete Root Bundle
-                            delete_payload.push(crate::models::file_info::FileInfo::new(
+                            let mut info = crate::models::file_info::FileInfo::new(
                                 app_obj.name.clone(),
                                 app_obj.path.clone(),
                                 app_obj.app_size_bytes,
                                 true,
-                            ));
+                            );
+                            info.is_selected = true;
+                            delete_payload.push(info);
 
                             // 2. Delete Relational Libraries
                             for relation in &app_obj.related_files {
-                                delete_payload.push(relation.clone());
+                                let mut rel = relation.clone();
+                                rel.is_selected = true;
+                                delete_payload.push(rel);
                             }
                         }
                     }

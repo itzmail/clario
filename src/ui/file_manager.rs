@@ -14,6 +14,8 @@ pub fn draw_file_manager(f: &mut Frame, app: &mut App) {
     let files = &app.scanned_files;
     let is_scanning = app.is_scanning;
     let scan_progress_text = app.scan_progress_text.as_str();
+    let delete_progress_text = app.delete_progress_text.as_str();
+    let archive_progress_text = app.archive_progress_text.as_str();
     let show_delete_confirm = app.show_delete_confirm;
     let delete_confirm_selected = app.delete_confirm_selected;
     let is_deleting = app.is_deleting;
@@ -536,7 +538,7 @@ pub fn draw_file_manager(f: &mut Frame, app: &mut App) {
             )]),
             Line::from(""),
             Line::from(vec![Span::styled(
-                scan_progress_text, // Munculkan log dinamis string file IO !
+                if is_deleting { delete_progress_text } else { archive_progress_text }, // Munculkan log dinamis string file IO !
                 Style::default().fg(color),
             )]),
             Line::from(""),

@@ -305,7 +305,7 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
             )),
             Line::from(""),
             Line::from(Span::styled(
-                app.scan_progress_text.as_str(),
+                app.delete_progress_text.as_str(),
                 Style::default().fg(theme.muted_text()),
             )),
         ];

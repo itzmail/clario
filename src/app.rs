@@ -21,7 +21,9 @@ pub struct App {
     pub selected_menu: usize,
     pub scanned_files: Vec<FileInfo>,
     pub is_scanning: bool,
-    pub scan_progress_text: String,
+    pub scan_progress_text: String,      // file scan + app scan progress
+    pub delete_progress_text: String,    // deletion progress
+    pub archive_progress_text: String,   // archiving progress
     pub scan_rx: Option<mpsc::Receiver<crate::core::events::ScanEvent>>,
     pub file_table_state: TableState,
     pub show_delete_confirm: bool,
@@ -67,6 +69,8 @@ impl App {
             scanned_files: Vec::new(),
             is_scanning: false,
             scan_progress_text: String::new(),
+            delete_progress_text: String::new(),
+            archive_progress_text: String::new(),
             scan_rx: None,
             file_table_state: TableState::default(),
             show_delete_confirm: false,
@@ -131,7 +135,7 @@ impl App {
                 while let Ok(msg) = rx.try_recv() {
                     match msg {
                         Some(text) => {
-                            self.scan_progress_text = text;
+                            self.delete_progress_text = text;
                         }
                         None => {
                             // Finish Deleting
@@ -164,7 +168,7 @@ impl App {
                 while let Ok(msg) = rx.try_recv() {
                     match msg {
                         Some(text) => {
-                            self.scan_progress_text = text; // Update UI ZIP path
+                            self.archive_progress_text = text; // Update UI ZIP path
                         }
                         None => {
                             // Finish Archiving
@@ -186,6 +190,21 @@ impl App {
                 self.last_sys_refresh = Instant::now();
             }
 
+            // Auto-trigger file scan when entering FileManager with no data
+            if self.mode == AppMode::FileManager
+                && self.scanned_files.is_empty()
+                && !self.is_scanning
+            {
+                self.is_scanning = true;
+                let (tx, rx) = mpsc::channel();
+                self.scan_rx = Some(rx);
+                let threshold = self.config.safety_threshold_days;
+                tokio::task::spawn_blocking(move || {
+                    let targets = crate::utils::platform::get_scan_targets();
+                    crate::core::file_scanner::FileScanner::scan_targets(&targets, threshold, tx);
+                });
+            }
+
             // Render UI sesuai mode
             terminal.draw(|f| {
                 match self.mode {
@@ -193,22 +212,6 @@ impl App {
                         draw_dashboard(f, self)
                     }
                     AppMode::FileManager => {
-                        // Render indikator scanner progress di UI saat mode scan
-                        if self.scanned_files.is_empty() && !self.is_scanning {
-                            self.is_scanning = true;
-
-                            let (tx, rx) = mpsc::channel();
-                            self.scan_rx = Some(rx);
-
-                            // Kirim job scanning raksasa (berat) ke background IO thread agar layout UI tetep gesit
-                            let threshold = self.config.safety_threshold_days;
-                            tokio::task::spawn_blocking(move || {
-                                let targets = crate::utils::platform::get_scan_targets();
-                                crate::core::file_scanner::FileScanner::scan_targets(
-                                    &targets, threshold, tx,
-                                );
-                            });
-                        }
                         draw_file_manager(f, self);
                     }
                     AppMode::Settings => draw_settings(f, self),
