@@ -226,20 +226,48 @@ pub fn draw_dashboard(f: &mut Frame, app: &App) {
         .title(" 📊 Quick Stats ")
         .border_style(Style::default().fg(theme.secondary()));
 
+    // Build real last_clean display from persistent stats
+    let last_clean_text = match &app.config.stats.last_clean_date {
+        Some(date) => {
+            let elapsed = chrono::Local::now().signed_duration_since(*date);
+            if elapsed.num_days() > 0 {
+                format!("{} days ago", elapsed.num_days())
+            } else if elapsed.num_hours() > 0 {
+                format!("{} hours ago", elapsed.num_hours())
+            } else {
+                "Just now".to_string()
+            }
+        }
+        None => "Never".to_string(),
+    };
+
+    let files_deleted_text = format!("{} files", app.config.stats.total_files_deleted);
+
+    let bytes = app.config.stats.total_bytes_freed;
+    let space_freed_text = if bytes >= 1_073_741_824 {
+        format!("{:.1} GB", bytes as f64 / 1_073_741_824.0)
+    } else if bytes >= 1_048_576 {
+        format!("{:.1} MB", bytes as f64 / 1_048_576.0)
+    } else if bytes >= 1024 {
+        format!("{:.1} KB", bytes as f64 / 1024.0)
+    } else {
+        format!("{} B", bytes)
+    };
+
     let stats_text = vec![
         Line::from(""),
         Line::from(vec![
             Span::styled("  Last Clean   : ", Style::default().fg(theme.muted_text())),
-            Span::raw("2 days ago").fg(theme.text()),
+            Span::raw(last_clean_text).fg(theme.text()),
         ]),
         Line::from(vec![
             Span::styled("  Files Deleted: ", Style::default().fg(theme.muted_text())),
-            Span::raw("142").fg(theme.text()),
+            Span::raw(files_deleted_text).fg(theme.text()),
         ]),
         Line::from(vec![
             Span::styled("  Space Freed  : ", Style::default().fg(theme.muted_text())),
             Span::styled(
-                "8.1GB",
+                space_freed_text,
                 Style::default()
                     .fg(theme.safe())
                     .add_modifier(Modifier::BOLD),
@@ -249,7 +277,7 @@ pub fn draw_dashboard(f: &mut Frame, app: &App) {
         Line::from(vec![
             Span::styled("  Score        : ", Style::default().fg(theme.muted_text())),
             Span::styled(
-                "85/100 ⚡",
+                "Keep cleaning! ⚡",
                 Style::default()
                     .fg(theme.warning())
                     .add_modifier(Modifier::BOLD),

@@ -37,6 +37,8 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         KeyCode::Enter => {
             if app.show_delete_confirm {
                 if app.delete_confirm_selected == 0 {
+                    app.pending_bytes_to_free =
+                        crate::core::file_ops::FileOps::sum_selected_bytes(&app.scanned_files);
                     app.is_deleting = true;
                     // Reset text lama ke kosong saat inisiasi
                     app.delete_progress_text = String::new();
@@ -47,6 +49,8 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                 app.show_delete_confirm = false;
             } else if app.show_archive_confirm {
                 if app.archive_confirm_selected == 0 {
+                    app.pending_bytes_to_free =
+                        crate::core::file_ops::FileOps::sum_selected_bytes(&app.scanned_files);
                     app.is_archiving = true;
                     app.archive_progress_text = String::new();
                     let (tx, rx) = mpsc::channel::<Option<String>>();
@@ -85,6 +89,8 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
         }
         KeyCode::Char('y') => {
             if app.show_delete_confirm {
+                app.pending_bytes_to_free =
+                    crate::core::file_ops::FileOps::sum_selected_bytes(&app.scanned_files);
                 app.is_deleting = true;
                 app.delete_progress_text = String::new();
                 let (tx, rx) = mpsc::channel::<Option<String>>();
@@ -92,6 +98,8 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                 FileOps::execute_deletion(&app.scanned_files, tx);
                 app.show_delete_confirm = false;
             } else if app.show_archive_confirm {
+                app.pending_bytes_to_free =
+                    crate::core::file_ops::FileOps::sum_selected_bytes(&app.scanned_files);
                 app.is_archiving = true;
                 app.archive_progress_text = String::new();
                 let (tx, rx) = mpsc::channel::<Option<String>>();

@@ -16,6 +16,12 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
             }
             KeyCode::Enter => {
                 if app.delete_confirm_selected == 0 {
+                    app.pending_bytes_to_free = app
+                        .apps
+                        .iter()
+                        .filter(|a| a.is_selected)
+                        .map(|a| a.total_size_bytes)
+                        .sum();
                     app.is_deleting = true;
                     app.delete_progress_text = String::new();
 
