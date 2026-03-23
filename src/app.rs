@@ -192,7 +192,7 @@ impl App {
             terminal.draw(|f| {
                 match self.mode {
                     AppMode::Dashboard => {
-                        draw_dashboard(f, self.selected_menu, &self.sys, &self.config.theme)
+                        draw_dashboard(f, self)
                     }
                     AppMode::FileManager => {
                         // Render indikator scanner progress di UI saat mode scan
@@ -211,20 +211,7 @@ impl App {
                                 );
                             });
                         }
-                        draw_file_manager(
-                            f,
-                            &self.scanned_files,
-                            self.is_scanning,
-                            &self.scan_progress_text,
-                            &mut self.file_table_state,
-                            self.show_delete_confirm,
-                            self.delete_confirm_selected,
-                            self.is_deleting,
-                            self.show_archive_confirm,
-                            self.archive_confirm_selected,
-                            self.is_archiving,
-                            &self.config.theme,
-                        );
+                        draw_file_manager(f, self);
                     }
                     AppMode::Settings => draw_settings(f, self),
                     AppMode::AppUninstaller => {

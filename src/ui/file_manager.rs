@@ -1,7 +1,6 @@
-use crate::models::{
-    config::AppTheme,
-    file_info::{FileCategory, FileInfo},
-};
+use crate::app::App;
+use crate::models::config::AppTheme;
+use crate::models::file_info::{FileCategory, FileInfo};
 use crate::ui::components::centered_rect;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
@@ -11,21 +10,17 @@ use ratatui::{
     Frame,
 };
 
-// Kita update signature-nya agar menerima list file dari state App
-pub fn draw_file_manager(
-    f: &mut Frame,
-    files: &[FileInfo],
-    is_scanning: bool,
-    scan_progress_text: &str,
-    table_state: &mut ratatui::widgets::TableState,
-    show_delete_confirm: bool,
-    delete_confirm_selected: u8,
-    is_deleting: bool,
-    show_archive_confirm: bool,
-    archive_confirm_selected: u8,
-    is_archiving: bool,
-    theme: &AppTheme,
-) {
+pub fn draw_file_manager(f: &mut Frame, app: &mut App) {
+    let files = &app.scanned_files;
+    let is_scanning = app.is_scanning;
+    let scan_progress_text = app.scan_progress_text.as_str();
+    let show_delete_confirm = app.show_delete_confirm;
+    let delete_confirm_selected = app.delete_confirm_selected;
+    let is_deleting = app.is_deleting;
+    let show_archive_confirm = app.show_archive_confirm;
+    let archive_confirm_selected = app.archive_confirm_selected;
+    let is_archiving = app.is_archiving;
+    let theme = &app.config.theme.clone();
     let size = f.area();
 
     // Jika sedang dalam proses scan, tampilkan layar loading
@@ -232,7 +227,7 @@ pub fn draw_file_manager(
     .highlight_symbol(">> "); // Indikator garis panah seleksi saat ini
 
     // Render as stateful widget agar dia merespon dan me-remember scroll posisinya! pada Layout ke-0
-    f.render_stateful_widget(table, main_layout[0], table_state);
+    f.render_stateful_widget(table, main_layout[0], &mut app.file_table_state);
 
     // Render FOOTER TABS -> pada Layout ke-1
     let help_line = Paragraph::new(Line::from(vec![
