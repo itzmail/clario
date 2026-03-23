@@ -1,4 +1,5 @@
 use crate::app::App;
+use crate::ui::components::centered_rect;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Modifier, Style},
@@ -281,7 +282,7 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
     if app.is_deleting {
         // Overlay progress saat penghapusan berlangsung
         use ratatui::widgets::Clear;
-        let popup_area = centered_rect_abs(62, 10, size);
+        let popup_area = centered_rect(62, 10, size);
         f.render_widget(Clear, popup_area);
 
         let deleting_block = Block::default()
@@ -318,7 +319,7 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
 
     if app.show_delete_confirm {
         use ratatui::widgets::Clear;
-        let popup_area = centered_rect_abs(62, 12, size);
+        let popup_area = centered_rect(62, 12, size);
         f.render_widget(Clear, popup_area);
 
         // Hitung total yang akan dihapus
@@ -411,7 +412,7 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
         };
 
         f.render_widget(
-            Paragraph::new(Line::from(Span::styled(" ✗  Yes, Uninstall ", yes_style)))
+            Paragraph::new(Span::styled("✗ Yes, Uninstall", yes_style))
                 .alignment(Alignment::Center)
                 .block(
                     Block::default()
@@ -421,7 +422,7 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
             btn_layout[1],
         );
         f.render_widget(
-            Paragraph::new(Line::from(Span::styled(" ✓  No, Keep It ", no_style)))
+            Paragraph::new(Span::styled("✓ No, Keep It", no_style))
                 .alignment(Alignment::Center)
                 .block(
                     Block::default()
@@ -431,10 +432,4 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
             btn_layout[2],
         );
     }
-}
-
-fn centered_rect_abs(width: u16, height: u16, r: ratatui::layout::Rect) -> ratatui::layout::Rect {
-    let x = r.x + r.width.saturating_sub(width) / 2;
-    let y = r.y + r.height.saturating_sub(height) / 2;
-    ratatui::layout::Rect::new(x, y, width.min(r.width), height.min(r.height))
 }

@@ -8,7 +8,7 @@ use ratatui::{
 };
 
 /// Fungsi kecil untuk membuat `Rect` di tengah layer di atas layar asli dengan tinggi & lebar absolute u16.
-fn centered_rect(width: u16, height: u16, r: ratatui::layout::Rect) -> ratatui::layout::Rect {
+pub fn centered_rect(width: u16, height: u16, r: ratatui::layout::Rect) -> ratatui::layout::Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

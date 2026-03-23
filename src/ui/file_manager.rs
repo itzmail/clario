@@ -2,6 +2,7 @@ use crate::models::{
     config::AppTheme,
     file_info::{FileCategory, FileInfo},
 };
+use crate::ui::components::centered_rect;
 use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Modifier, Style},
@@ -276,7 +277,14 @@ pub fn draw_file_manager(
                 .fg(theme.archive())
                 .add_modifier(Modifier::BOLD),
         ),
-        Span::styled("Archive", Style::default().fg(theme.muted_text())),
+        Span::styled("Archive  ", Style::default().fg(theme.muted_text())),
+        Span::styled(
+            " [r] ",
+            Style::default()
+                .fg(theme.primary())
+                .add_modifier(Modifier::BOLD),
+        ),
+        Span::styled("Refresh", Style::default().fg(theme.muted_text())),
     ]))
     .alignment(Alignment::Center)
     .block(
@@ -549,25 +557,4 @@ pub fn draw_file_manager(
 
         f.render_widget(paragraph, modal_area);
     }
-}
-
-/// Helper untuk membuat Rectangle box di tengah layar (menggunakan absolute Length, bukan persentase)
-fn centered_rect(width: u16, height: u16, r: ratatui::layout::Rect) -> ratatui::layout::Rect {
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(r.height.saturating_sub(height) / 2),
-            Constraint::Length(height), // FIXED HEIGHT untuk Modal (misal 12)
-            Constraint::Min(0),
-        ])
-        .split(r);
-
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Length(r.width.saturating_sub(width) / 2),
-            Constraint::Length(width), // FIXED WIDTH for Modal (misal 60)
-            Constraint::Min(0),
-        ])
-        .split(popup_layout[1])[1]
 }
