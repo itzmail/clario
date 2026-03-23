@@ -3,17 +3,17 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in-progress
-last_updated: "2026-03-23T05:00:00Z"
+last_updated: "2026-03-23T05:03:00Z"
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 3
-  completed_plans: 2
+  completed_plans: 3
 ---
 
 # Clario — Project State
 
-**Last updated:** 2026-03-23 (after 01-02)
+**Last updated:** 2026-03-23 (after 01-03)
 
 ## Project Reference
 
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 | Phase | Name | Status |
 |-------|------|--------|
-| 1 | TUI Refactor & Architecture Cleanup | ◑ In progress (2/? plans done) |
+| 1 | TUI Refactor & Architecture Cleanup | ✓ Complete (3/3 plans done) |
 | 2 | Security: Process Monitor | ○ Not started |
 | 3 | Security: Vulnerability Audit | ○ Not started |
 | 4 | Core Library Extraction | ○ Not started |
@@ -36,10 +36,10 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 ## Current Position
 
 **Phase:** 01-tui-refactor-architecture-cleanup
-**Last plan completed:** 01-02 (Fix Architectural Smells — ScanEvent Migration, Scan Trigger, Progress Fields)
-**Next:** 01-03 (if exists) or phase complete
+**Last plan completed:** 01-03 (CleanStats Persistence and Real Dashboard Statistics)
+**Next:** Phase 02 — Security: Process Monitor
 
-**Stopped at:** Completed 01-02-PLAN.md
+**Stopped at:** Completed 01-03-PLAN.md
 
 ## Existing Codebase (Phase 0)
 
@@ -60,6 +60,9 @@ Features already shipped before GSD setup:
 - **01-02:** ScanEvent belongs in core/ not models/ — it is a channel message type, not a domain data entity
 - **01-02:** Background I/O trigger (spawn_blocking + channel) goes BEFORE terminal.draw() — render closure must be side-effect free
 - **01-02:** Per-operation progress fields prevent semantic ambiguity — scan/delete/archive each have their own String field
+- **01-03:** Stats are recorded before retain_unselected removes items from memory — avoids counting zero after cleanup
+- **01-03:** pending_bytes_to_free is set at confirm-time to capture accurate sizes before background thread removes files
+- **01-03:** Hardcoded score (85/100) replaced with generic label — real scoring logic deferred to future plan
 
 ## Performance Metrics
 
@@ -67,8 +70,9 @@ Features already shipped before GSD setup:
 |-------|------|----------|-------|-------|
 | 01-tui-refactor-architecture-cleanup | 01 | 3min | 2 | 5 |
 | 01-tui-refactor-architecture-cleanup | 02 | 8min | 2 | 11 |
+| 01-tui-refactor-architecture-cleanup | 03 | 3min | 2 | 6 |
 
 ## Session Info
 
-**Last session:** 2026-03-23T05:00:00Z
-**Stopped at:** Completed 01-02-PLAN.md
+**Last session:** 2026-03-23T05:03:00Z
+**Stopped at:** Completed 01-03-PLAN.md

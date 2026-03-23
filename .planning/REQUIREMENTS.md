@@ -81,7 +81,7 @@
 | REFAC-04 | Phase 1 | Complete (01-02) |
 | REFAC-05 | Phase 1 | Complete (01-02) |
 | REFAC-06 | Phase 1 | Complete (01-02) |
-| REFAC-07 | Phase 1 | Pending |
+| REFAC-07 | Phase 1 | Complete (01-03) |
 | SEC-01 | Phase 2 | Pending |
 | SEC-02 | Phase 2 | Pending |
 | SEC-03 | Phase 2 | Pending |
