@@ -9,10 +9,10 @@
 
 - [x] **REFAC-01**: Draw function signatures diunifikasi — semua screen pakai `&mut App` atau semua pakai explicit params (pilih satu, konsisten)
 - [x] **REFAC-02**: `centered_rect` diekstrak ke `src/ui/components.rs` sebagai shared helper, duplikasi dihapus
-- [ ] **REFAC-03**: FileManager scan kickoff dipindah keluar dari `terminal.draw(...)` closure ke handler atau lifecycle method yang tepat
-- [ ] **REFAC-04**: `ScanEvent` dipindah dari `src/models/file_info.rs` ke `src/core/events.rs` (atau `src/app.rs`)
-- [ ] **REFAC-05**: Shared `scan_progress_text` diganti dengan per-operation progress state yang terpisah
-- [ ] **REFAC-06**: `AppInfo::is_expanded` dan `App::related_files_state` dihapus atau diimplementasi
+- [x] **REFAC-03**: FileManager scan kickoff dipindah keluar dari `terminal.draw(...)` closure ke handler atau lifecycle method yang tepat
+- [x] **REFAC-04**: `ScanEvent` dipindah dari `src/models/file_info.rs` ke `src/core/events.rs` (atau `src/app.rs`)
+- [x] **REFAC-05**: Shared `scan_progress_text` diganti dengan per-operation progress state yang terpisah
+- [x] **REFAC-06**: `AppInfo::is_expanded` dan `App::related_files_state` dihapus atau diimplementasi
 - [ ] **REFAC-07**: Dashboard stats (last clean, files deleted, space freed) ditampilkan dari data real — persist ke config/state file
 
 ### Security — Process Monitor
@@ -77,10 +77,10 @@
 |-------------|-------|--------|
 | REFAC-01 | Phase 1 | Complete (01-01) |
 | REFAC-02 | Phase 1 | Complete (01-01) |
-| REFAC-03 | Phase 1 | Pending |
-| REFAC-04 | Phase 1 | Pending |
-| REFAC-05 | Phase 1 | Pending |
-| REFAC-06 | Phase 1 | Pending |
+| REFAC-03 | Phase 1 | Complete (01-02) |
+| REFAC-04 | Phase 1 | Complete (01-02) |
+| REFAC-05 | Phase 1 | Complete (01-02) |
+| REFAC-06 | Phase 1 | Complete (01-02) |
 | REFAC-07 | Phase 1 | Pending |
 | SEC-01 | Phase 2 | Pending |
 | SEC-02 | Phase 2 | Pending |
@@ -101,4 +101,4 @@
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after initial definition*
+*Last updated: 2026-03-23 after 01-02 completion (REFAC-03, REFAC-04, REFAC-05, REFAC-06 complete)*

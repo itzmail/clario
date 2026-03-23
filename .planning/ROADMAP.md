@@ -26,7 +26,7 @@ Dari codebase yang sudah ada (File Manager + App Uninstaller), Clario dikembangk
 
 Plans:
 - [x] 01-01: Unify draw function signatures and extract shared UI utilities
-- [ ] 01-02: Fix architectural smells (scan trigger, ScanEvent location, progress state)
+- [x] 01-02: Fix architectural smells (scan trigger, ScanEvent location, progress state)
 - [ ] 01-03: Implement dashboard stats persistence and real data display
 
 ### Phase 2: Security — Process Monitor
@@ -66,6 +66,6 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. TUI Refactor & Architecture Cleanup | 1/3 | In progress | - |
+| 1. TUI Refactor & Architecture Cleanup | 2/3 | In progress | - |
 | 2. Security — Process Monitor | 0/2 | Not started | - |
 | 3. Security — Vulnerability Audit | 0/2 | Not started | - |
