@@ -36,6 +36,7 @@ pub fn get_scan_targets() -> Vec<PathBuf> {
 }
 
 /// Mendapatkan folder di mana aplikasi biasanya terinstall
+#[allow(dead_code)] // Reserved: akan dipakai Phase 3 untuk LaunchAgents/app dirs audit
 pub fn get_app_directories() -> Vec<PathBuf> {
     let mut dirs = Vec::new();
 

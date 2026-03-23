@@ -12,6 +12,7 @@ pub enum SafetyLevel {
 
 /// Menandakan kategori dari sebuah file sampah.
 #[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)] // Document/Application/Archive reserved untuk Phase 3 vulnerability scan
 pub enum FileCategory {
     Cache,
     Log,
@@ -24,6 +25,7 @@ pub enum FileCategory {
 /// DTO (Data Transfer Object) untuk setiap file yang kita scan.
 #[derive(Debug, Clone)]
 pub struct FileInfo {
+    #[allow(dead_code)] // Reserved: akan dipakai sebagai identifier di Phase 3
     pub id: String,                     // UUID string
     pub name: String,                   // Nama file
     pub path: PathBuf,                  // Path lengkap (kayak os.Path error safe)

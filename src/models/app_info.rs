@@ -4,6 +4,7 @@ use std::path::PathBuf;
 /// DTO untuk Aplikasi dan relasi sampahnya
 #[derive(Debug, Clone)]
 pub struct AppInfo {
+    #[allow(dead_code)] // Reserved: akan dipakai sebagai identifier di Phase 3
     pub id: String,                   // UUID
     pub name: String,                 // "Google Chrome"
     pub bundle_id: Option<String>,    // "com.google.Chrome"
