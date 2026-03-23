@@ -1,3 +1,4 @@
+use crate::core::events::ScanEvent;
 use crate::models::{app_info::AppInfo, file_info::FileInfo};
 use std::path::PathBuf;
 use walkdir::WalkDir;
@@ -6,9 +7,7 @@ pub struct AppScanner;
 
 impl AppScanner {
     /// Mencari seluruh `.app` bundle di direktori Mac yang paling umum
-    pub fn scan_applications(
-        tx: std::sync::mpsc::Sender<crate::models::file_info::ScanEvent>,
-    ) -> Vec<AppInfo> {
+    pub fn scan_applications(tx: std::sync::mpsc::Sender<ScanEvent>) -> Vec<AppInfo> {
         let mut results = Vec::new();
 
         let targets = vec![
@@ -35,8 +34,7 @@ impl AppScanner {
                             .to_string_lossy()
                             .to_string();
 
-                        let _ =
-                            tx.send(crate::models::file_info::ScanEvent::Progress(name.clone()));
+                        let _ = tx.send(ScanEvent::Progress(name.clone()));
 
                         let mut app_info = AppInfo::new(name.clone(), path.clone(), 0);
 
@@ -54,13 +52,22 @@ impl AppScanner {
 
                         // Hitung Ukuran Aplikasi (Karena *.app itu folder, kita muter isinya)
                         let mut app_size = 0;
+                        let mut last_accessed: Option<chrono::DateTime<chrono::Local>> = None;
                         for inner in WalkDir::new(&path).into_iter().filter_map(Result::ok) {
                             if let Ok(meta) = inner.metadata() {
                                 app_size += meta.len();
+                                if last_accessed.is_none() {
+                                    if let Ok(accessed) = meta.accessed() {
+                                        last_accessed = Some(chrono::DateTime::from(accessed));
+                                    } else if let Ok(modified) = meta.modified() {
+                                        last_accessed = Some(chrono::DateTime::from(modified));
+                                    }
+                                }
                             }
                         }
                         app_info.app_size_bytes = app_size;
                         app_info.total_size_bytes = app_size;
+                        app_info.last_accessed = last_accessed;
 
                         // Cari file Library/Caches yang bersangkut paut
                         Self::find_related_files(&mut app_info);
@@ -71,8 +78,12 @@ impl AppScanner {
             }
         }
 
-        // Urutkan aplikasi dari yang terberat (termasuk file sampahnya)
-        results.sort_by(|a, b| b.total_size_bytes.cmp(&a.total_size_bytes));
+        // Urutkan aplikasi dari yang terlama diakses (unused paling lama di atas)
+        results.sort_by(|a, b| {
+            let time_a = a.last_accessed.unwrap_or_else(|| chrono::Local::now());
+            let time_b = b.last_accessed.unwrap_or_else(|| chrono::Local::now());
+            time_a.cmp(&time_b)
+        });
         results
     }
 

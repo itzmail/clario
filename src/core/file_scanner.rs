@@ -1,4 +1,5 @@
-use crate::models::file_info::{FileCategory, FileInfo, SafetyLevel, ScanEvent};
+use crate::core::events::ScanEvent;
+use crate::models::file_info::{FileCategory, FileInfo, SafetyLevel};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::Sender;
 use walkdir::WalkDir;

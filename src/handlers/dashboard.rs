@@ -47,7 +47,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                         tokio::task::spawn_blocking(move || {
                             let scanned_apps =
                                 crate::core::app_scanner::AppScanner::scan_applications(tx.clone());
-                            let _ = tx.send(crate::models::file_info::ScanEvent::FinishedApps(
+                            let _ = tx.send(crate::core::events::ScanEvent::FinishedApps(
                                 scanned_apps,
                             ));
                         });

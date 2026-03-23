@@ -22,7 +22,7 @@ pub struct App {
     pub scanned_files: Vec<FileInfo>,
     pub is_scanning: bool,
     pub scan_progress_text: String,
-    pub scan_rx: Option<mpsc::Receiver<crate::models::file_info::ScanEvent>>,
+    pub scan_rx: Option<mpsc::Receiver<crate::core::events::ScanEvent>>,
     pub file_table_state: TableState,
     pub show_delete_confirm: bool,
     pub delete_confirm_selected: u8, // 0 = Confirm, 1 = Cancel
@@ -47,7 +47,6 @@ pub struct App {
     pub apps: Vec<crate::models::app_info::AppInfo>,
     pub selected_app_index: usize,
     pub app_table_state: TableState,
-    pub related_files_state: TableState,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -91,7 +90,6 @@ impl App {
             apps: Vec::new(),
             selected_app_index: 0,
             app_table_state: TableState::default(),
-            related_files_state: TableState::default(),
         }
     }
 
@@ -107,17 +105,17 @@ impl App {
             if let Some(rx) = &mut self.scan_rx {
                 while let Ok(event) = rx.try_recv() {
                     match event {
-                        crate::models::file_info::ScanEvent::Progress(text) => {
+                        crate::core::events::ScanEvent::Progress(text) => {
                             self.scan_progress_text = text;
                         }
-                        crate::models::file_info::ScanEvent::Finished(files) => {
+                        crate::core::events::ScanEvent::Finished(files) => {
                             self.scanned_files = files;
                             self.is_scanning = false;
                             self.scan_rx = None;
                             self.file_table_state.select(Some(0));
                             break;
                         }
-                        crate::models::file_info::ScanEvent::FinishedApps(apps) => {
+                        crate::core::events::ScanEvent::FinishedApps(apps) => {
                             self.apps = apps;
                             self.is_scanning = false;
                             self.scan_rx = None;
@@ -283,7 +281,7 @@ impl App {
                                             tx.clone(),
                                         );
                                     let _ =
-                                        tx.send(crate::models::file_info::ScanEvent::FinishedApps(
+                                        tx.send(crate::core::events::ScanEvent::FinishedApps(
                                             scanned_apps,
                                         ));
                                 });

@@ -11,8 +11,8 @@ pub struct AppInfo {
     pub app_size_bytes: u64,          // Ukuran aplikasi utama
     pub total_size_bytes: u64,        // Ukuran Aplikasi + Sampah relasi
     pub related_files: Vec<FileInfo>, // Daftar cache/preferences/log app ini
+    pub last_accessed: Option<chrono::DateTime<chrono::Local>>,
     pub is_selected: bool,
-    pub is_expanded: bool, // Untuk dropdown di UI
 }
 
 impl AppInfo {
@@ -25,8 +25,8 @@ impl AppInfo {
             app_size_bytes: app_size,
             total_size_bytes: app_size,
             related_files: Vec::new(),
+            last_accessed: None,
             is_selected: false,
-            is_expanded: false,
         }
     }
 }
