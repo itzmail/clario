@@ -4,9 +4,29 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table},
+    widgets::{Block, BorderType, Borders, Cell, Paragraph, Row, Table},
     Frame,
 };
+
+fn format_last_used(last_accessed: Option<chrono::DateTime<chrono::Local>>) -> String {
+    match last_accessed {
+        None => "Unknown".to_string(),
+        Some(dt) => {
+            let days = (chrono::Local::now() - dt).num_days();
+            if days < 1 {
+                "Today".to_string()
+            } else if days < 7 {
+                format!("{}d ago", days)
+            } else if days < 30 {
+                format!("{}w ago", days / 7)
+            } else if days < 365 {
+                format!("{}mo ago", days / 30)
+            } else {
+                format!("{}y ago", days / 365)
+            }
+        }
+    }
+}
 
 pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
     let size = f.area();
@@ -47,6 +67,15 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
 
     // Jika sedang nge-scan, tampilkan layar loading
     if app.apps.is_empty() && app.is_scanning {
+        let scan_layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(40),
+                Constraint::Length(5),
+                Constraint::Percentage(40),
+            ])
+            .split(chunks[1]);
+
         let loading_text = format!(
             "⏳ Searching Applications and analyzing Library metadata...\n\nCurrently checking: {}",
             app.scan_progress_text
@@ -54,16 +83,15 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
 
         let loading = Paragraph::new(loading_text)
             .alignment(Alignment::Center)
-            .style(Style::default().fg(theme.accent()))
+            .style(Style::default().fg(theme.warning()).add_modifier(Modifier::BOLD))
             .block(
                 Block::default()
                     .borders(Borders::ALL)
-                    .border_type(ratatui::widgets::BorderType::Rounded)
-                    .border_style(Style::default().fg(theme.accent())),
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(theme.warning())),
             );
 
-        // Render layar full
-        f.render_widget(loading, chunks[1]);
+        f.render_widget(loading, scan_layout[1]);
         return;
     }
 
@@ -116,10 +144,21 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
             },
         );
 
+        let last_used_str = format_last_used(current_app.last_accessed);
+        let last_used_span = Span::styled(
+            last_used_str,
+            if is_selected_row {
+                Style::default().fg(theme.bg())
+            } else {
+                Style::default().fg(theme.muted_text())
+            },
+        );
+
         app_rows.push(Row::new(vec![
             Cell::from(check_symbol),
             Cell::from(name_span),
             Cell::from(size_span),
+            Cell::from(last_used_span),
         ]));
     }
 
@@ -132,12 +171,13 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
         app_rows,
         [
             Constraint::Length(4),      // Ceklis
-            Constraint::Percentage(70), // Nama App
-            Constraint::Percentage(30), // Total Size (App + Relasi)
+            Constraint::Percentage(50), // Nama App
+            Constraint::Percentage(20), // Total Size
+            Constraint::Percentage(30), // Last Used
         ],
     )
     .header(
-        Row::new(vec!["Sel", "Application Name", "Total Size"])
+        Row::new(vec!["Sel", "Application Name", "Total Size", "Last Used"])
             .style(
                 Style::default()
                     .fg(theme.bg())
@@ -390,46 +430,51 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
             ])
             .split(confirm_chunks[1]);
 
-        let yes_style = if app.delete_confirm_selected == 0 {
-            Style::default()
-                .fg(theme.bg())
-                .bg(theme.danger())
-                .add_modifier(Modifier::BOLD)
+        let (confirm_border, confirm_style) = if app.delete_confirm_selected == 0 {
+            (
+                theme.danger(),
+                Style::default()
+                    .fg(theme.bg())
+                    .bg(theme.danger())
+                    .add_modifier(Modifier::BOLD),
+            )
         } else {
-            Style::default()
-                .fg(theme.danger())
-                .add_modifier(Modifier::BOLD)
-        };
-        let no_style = if app.delete_confirm_selected == 1 {
-            Style::default()
-                .fg(theme.bg())
-                .bg(theme.safe())
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default()
-                .fg(theme.safe())
-                .add_modifier(Modifier::BOLD)
+            (theme.muted_text(), Style::default().fg(theme.muted_text()))
         };
 
-        f.render_widget(
-            Paragraph::new(Span::styled("✗ Yes, Uninstall", yes_style))
-                .alignment(Alignment::Center)
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .border_style(yes_style),
-                ),
-            btn_layout[1],
-        );
-        f.render_widget(
-            Paragraph::new(Span::styled("✓ No, Keep It", no_style))
-                .alignment(Alignment::Center)
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .border_style(no_style),
-                ),
-            btn_layout[2],
-        );
+        let (cancel_border, cancel_style) = if app.delete_confirm_selected == 1 {
+            (
+                theme.text(),
+                Style::default()
+                    .fg(theme.bg())
+                    .bg(theme.text())
+                    .add_modifier(Modifier::BOLD),
+            )
+        } else {
+            (theme.muted_text(), Style::default().fg(theme.muted_text()))
+        };
+
+        let btn_confirm = Paragraph::new(" [Y/Enter] Confirm ")
+            .alignment(Alignment::Center)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(confirm_border)),
+            )
+            .style(confirm_style);
+
+        let btn_cancel = Paragraph::new(" [N/Esc] Cancel ")
+            .alignment(Alignment::Center)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_type(BorderType::Rounded)
+                    .border_style(Style::default().fg(cancel_border)),
+            )
+            .style(cancel_style);
+
+        f.render_widget(btn_confirm, btn_layout[1]);
+        f.render_widget(btn_cancel, btn_layout[2]);
     }
 }

@@ -56,12 +56,17 @@ impl AppScanner {
                         for inner in WalkDir::new(&path).into_iter().filter_map(Result::ok) {
                             if let Ok(meta) = inner.metadata() {
                                 app_size += meta.len();
-                                if last_accessed.is_none() {
-                                    if let Ok(accessed) = meta.accessed() {
-                                        last_accessed = Some(chrono::DateTime::from(accessed));
-                                    } else if let Ok(modified) = meta.modified() {
-                                        last_accessed = Some(chrono::DateTime::from(modified));
-                                    }
+                                // Track MAX access time — kapan app terakhir benar-benar dipakai
+                                let file_time = meta
+                                    .accessed()
+                                    .ok()
+                                    .or_else(|| meta.modified().ok())
+                                    .map(chrono::DateTime::<chrono::Local>::from);
+                                if let Some(t) = file_time {
+                                    last_accessed = Some(match last_accessed {
+                                        None => t,
+                                        Some(prev) => prev.max(t),
+                                    });
                                 }
                             }
                         }

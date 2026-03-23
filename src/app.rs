@@ -172,9 +172,9 @@ impl App {
                                 }
                                 self.app_table_state.select(Some(self.selected_app_index));
                             } else {
-                                crate::core::file_ops::FileOps::retain_unselected(
-                                    &mut self.scanned_files,
-                                );
+                                // Clear semua — next loop tick akan auto-trigger rescan
+                                self.scanned_files.clear();
+                                self.is_scanning = false;
                             }
                             break;
                         }
