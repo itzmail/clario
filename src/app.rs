@@ -3,7 +3,8 @@ use crate::models::config::AppConfig;
 use crate::models::file_info::FileInfo;
 use crate::ui::{
     app_uninstaller::draw_app_uninstaller, components::draw_exit_modal, dashboard::draw_dashboard,
-    file_manager::draw_file_manager, settings::draw_settings,
+    file_manager::draw_file_manager, process_monitor::draw_process_monitor,
+    settings::draw_settings,
 };
 use crossterm::event::{poll, read, Event, KeyCode};
 use crossterm::{
@@ -51,6 +52,14 @@ pub struct App {
     pub apps: Vec<crate::models::app_info::AppInfo>,
     pub selected_app_index: usize,
     pub app_table_state: TableState,
+
+    // Process Monitor fields
+    pub processes: Vec<crate::models::process_info::ProcessInfo>,
+    pub process_table_state: ratatui::widgets::TableState,
+    pub selected_process_index: usize,
+    pub show_kill_confirm: bool,
+    pub kill_confirm_selected: u8, // 0=Cancel, 1=Graceful(SIGTERM), 2=Force(SIGKILL)
+    pub kill_status_message: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -60,6 +69,7 @@ pub enum AppMode {
     FileManager,
     Settings,
     AppUninstaller,
+    ProcessMonitor,
 }
 
 impl App {
@@ -97,6 +107,12 @@ impl App {
             apps: Vec::new(),
             selected_app_index: 0,
             app_table_state: TableState::default(),
+            processes: Vec::new(),
+            process_table_state: ratatui::widgets::TableState::default(),
+            selected_process_index: 0,
+            show_kill_confirm: false,
+            kill_confirm_selected: 0, // Default to Cancel (safe)
+            kill_status_message: None,
         }
     }
 
@@ -247,6 +263,7 @@ impl App {
                     AppMode::AppUninstaller => {
                         draw_app_uninstaller(f, self);
                     }
+                    AppMode::ProcessMonitor => draw_process_monitor(f, self),
                 }
 
                 // Draw Exit Modal ON TOP of everything if requested
@@ -296,10 +313,14 @@ impl App {
                         }
                         KeyCode::Char('f') => {
                             self.mode = AppMode::FileManager;
+                            self.show_kill_confirm = false;
+                            self.kill_status_message = None;
                             continue;
                         }
                         KeyCode::Char('u') => {
                             self.mode = AppMode::AppUninstaller;
+                            self.show_kill_confirm = false;
+                            self.kill_status_message = None;
                             // Kickoff the uninstaller thread load
                             if self.apps.is_empty() && !self.is_scanning {
                                 self.is_scanning = true;
@@ -322,11 +343,26 @@ impl App {
                         }
                         KeyCode::Char('s') => {
                             self.mode = AppMode::Settings;
+                            self.show_kill_confirm = false;
+                            self.kill_status_message = None;
                             continue;
                         }
                         KeyCode::Char('d') => {
                             self.mode = AppMode::Dashboard;
                             self.selected_menu = 0;
+                            // Reset ProcessMonitor state when leaving
+                            self.show_kill_confirm = false;
+                            self.kill_status_message = None;
+                            continue;
+                        }
+                        KeyCode::Char('p') => {
+                            self.mode = AppMode::ProcessMonitor;
+                            if self.processes.is_empty() {
+                                self.processes = crate::core::process_scanner::ProcessScanner::scan(&self.sys);
+                                if !self.processes.is_empty() {
+                                    self.process_table_state.select(Some(0));
+                                }
+                            }
                             continue;
                         }
                         _ => {}
@@ -338,6 +374,7 @@ impl App {
                         AppMode::FileManager => handlers::file_manager::handle_key(self, key),
                         AppMode::Settings => handlers::settings::handle_key(self, key),
                         AppMode::AppUninstaller => handlers::app_uninstaller::handle_key(self, key),
+                        AppMode::ProcessMonitor => handlers::process_monitor::handle_key(self, key),
                     }
                 }
             }

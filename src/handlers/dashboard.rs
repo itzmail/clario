@@ -7,10 +7,10 @@ use std::sync::mpsc;
 pub fn handle_key(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Down | KeyCode::Char('j') => {
-            app.selected_menu = (app.selected_menu + 1) % 3;
+            app.selected_menu = (app.selected_menu + 1) % 4;
         }
         KeyCode::Up | KeyCode::Char('k') => {
-            app.selected_menu = (app.selected_menu + 2) % 3;
+            app.selected_menu = (app.selected_menu + 3) % 4;
         }
         // Konfirmasi Pilihan Menu
         KeyCode::Enter => {
@@ -54,6 +54,15 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                     }
                 }
                 2 => app.mode = AppMode::Settings,
+                3 => {
+                    app.mode = AppMode::ProcessMonitor;
+                    if app.processes.is_empty() {
+                        app.processes = crate::core::process_scanner::ProcessScanner::scan(&app.sys);
+                        if !app.processes.is_empty() {
+                            app.process_table_state.select(Some(0));
+                        }
+                    }
+                }
                 _ => {}
             }
         }

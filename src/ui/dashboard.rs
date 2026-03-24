@@ -183,10 +183,22 @@ pub fn draw_dashboard(f: &mut Frame, app: &App) {
             .add_modifier(Modifier::BOLD)
     };
 
+    let m4_style = if selected_menu == 3 {
+        Style::default()
+            .fg(theme.bg())
+            .bg(theme.danger())
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default()
+            .fg(theme.danger())
+            .add_modifier(Modifier::BOLD)
+    };
+
     // Prefix indicator for the active item
     let m1_prefix = if selected_menu == 0 { "▶ " } else { "  " };
     let m2_prefix = if selected_menu == 1 { "▶ " } else { "  " };
     let m3_prefix = if selected_menu == 2 { "▶ " } else { "  " };
+    let m4_prefix = if selected_menu == 3 { "▶ " } else { "  " };
 
     let action_menu_text = vec![
         Line::from(""),
@@ -214,6 +226,13 @@ pub fn draw_dashboard(f: &mut Frame, app: &App) {
         Line::from(
             format!("      Configure cleanup rules and safety options").fg(theme.muted_text()),
         ),
+        Line::from(""),
+        Line::from(vec![
+            Span::raw("  "),
+            Span::raw(m4_prefix),
+            Span::styled("  [p] Process Monitor", m4_style),
+        ]),
+        Line::from("      Scan running processes & flag suspicious activity".fg(theme.muted_text())),
     ];
 
     let action_menu = Paragraph::new(action_menu_text).block(action_menu_block);
@@ -299,6 +318,8 @@ pub fn draw_dashboard(f: &mut Frame, app: &App) {
         "Uninstaller  ".fg(theme.muted_text()),
         " [s] ".fg(theme.accent()).bold(),
         "Settings  ".fg(theme.muted_text()),
+        " [p] ".fg(theme.danger()).bold(),
+        "Processes  ".fg(theme.muted_text()),
         " [↑↓] ".fg(theme.safe()).bold(),
         "Navigate".fg(theme.muted_text()),
     ]))
