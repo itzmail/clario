@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-03-23T04:21:09.458Z"
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-03-24T23:30:32.260Z"
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
 ---
 
 # Clario — Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Bersihkan sistem secara menyeluruh dan aman — tanpa GUI overhead, tanpa residue yang tertinggal.
-**Current focus:** Phase 01 — TUI Refactor & Architecture Cleanup
+**Current focus:** Phase 02 — security-process-monitor
 
 ## Current Status
 
@@ -36,11 +36,8 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-**Phase:** 2
-**Last plan completed:** 01-03 (CleanStats Persistence and Real Dashboard Statistics)
-**Next:** Phase 02 — Security: Process Monitor
-
-**Stopped at:** Completed 01-03-PLAN.md
+Phase: 02 (security-process-monitor) — EXECUTING
+Plan: 2 of 2
 
 ## Existing Codebase (Phase 0)
 
@@ -64,6 +61,9 @@ Features already shipped before GSD setup:
 - **01-03:** Stats are recorded before retain_unselected removes items from memory — avoids counting zero after cleanup
 - **01-03:** pending_bytes_to_free is set at confirm-time to capture accurate sizes before background thread removes files
 - **01-03:** Hardcoded score (85/100) replaced with generic label — real scoring logic deferred to future plan
+- [Phase 02-security-process-monitor]: apply_rules() extracted as standalone function for testability without real sysinfo::System instance
+- [Phase 02-security-process-monitor]: exe=None skips D-01/D-02/D-03 — prevents false flags on SIP-protected macOS processes
+- [Phase 02-security-process-monitor]: format_memory/format_uptime co-located in process_scanner.rs for testability alongside scanner logic
 
 ## Performance Metrics
 
@@ -72,8 +72,9 @@ Features already shipped before GSD setup:
 | 01-tui-refactor-architecture-cleanup | 01 | 3min | 2 | 5 |
 | 01-tui-refactor-architecture-cleanup | 02 | 8min | 2 | 11 |
 | 01-tui-refactor-architecture-cleanup | 03 | 3min | 2 | 6 |
+| Phase 02-security-process-monitor P01 | 8min | 2 tasks | 4 files |
 
 ## Session Info
 
-**Last session:** 2026-03-23T05:03:00Z
-**Stopped at:** Completed 01-03-PLAN.md
+**Last session:** 2026-03-24T23:30:32.257Z
+**Stopped at:** Completed 02-01-PLAN.md

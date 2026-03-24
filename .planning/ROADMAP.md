@@ -42,7 +42,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 02-01: Process scanner using sysinfo with suspicious detection logic
+- [x] 02-01: Process scanner using sysinfo with suspicious detection logic
 - [ ] 02-02: Process Monitor TUI screen with detail panel and kill flow
 
 ### Phase 3: Security — Vulnerability Audit
@@ -67,5 +67,5 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. TUI Refactor & Architecture Cleanup | 3/3 | Complete    | 2026-03-23 |
-| 2. Security — Process Monitor | 0/2 | Not started | - |
+| 2. Security — Process Monitor | 1/2 | In Progress|  |
 | 3. Security — Vulnerability Audit | 0/2 | Not started | - |
