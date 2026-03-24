@@ -78,14 +78,11 @@ impl FileOps {
         // Spawn tokio background task thread
         tokio::task::spawn_blocking(move || {
             for path in paths_to_delete {
-                // Beri tahu UI file/folder apa yang sedang dihapus
                 let msg = path.to_string_lossy().to_string();
-                let _ = tx.send(Some(msg));
+                let _ = tx.send(Some(format!("Moving to Trash: {}", msg)));
 
-                if path.is_dir() {
-                    let _ = std::fs::remove_dir_all(&path);
-                } else {
-                    let _ = std::fs::remove_file(&path);
+                if let Err(e) = trash::delete(&path) {
+                    let _ = tx.send(Some(format!("ERROR: {} — {}", msg, e)));
                 }
             }
             // Kirim sinyal (None) bahwa I/O hapus selesai total!
@@ -196,11 +193,7 @@ impl FileOps {
             match zip.finish() {
                 Ok(_) if zip_success => {
                     for path in &paths_to_archive {
-                        if path.is_dir() {
-                            let _ = std::fs::remove_dir_all(path);
-                        } else {
-                            let _ = std::fs::remove_file(path);
-                        }
+                        let _ = trash::delete(path);
                     }
                 }
                 _ => {

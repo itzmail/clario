@@ -305,6 +305,12 @@ impl App {
                         KeyCode::Char('q') => {
                             if self.mode == AppMode::Dashboard {
                                 self.should_quit = true;
+                            } else if self.mode == AppMode::ProcessMonitor {
+                                // q from ProcessMonitor returns to Dashboard (same as Esc/d)
+                                self.mode = AppMode::Dashboard;
+                                self.selected_menu = 0;
+                                self.show_kill_confirm = false;
+                                self.kill_status_message = None;
                             } else {
                                 self.show_exit_confirm = true;
                                 self.exit_confirm_selected = 1; // Focus "Wait, not yet" default

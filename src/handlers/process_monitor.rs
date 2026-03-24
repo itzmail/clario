@@ -49,7 +49,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                     .select(Some(app.selected_process_index));
             }
         }
-        KeyCode::Up => {
+        KeyCode::Up | KeyCode::Char('k') => {
             if !app.processes.is_empty() {
                 app.selected_process_index = if app.selected_process_index == 0 {
                     app.processes.len() - 1
@@ -66,7 +66,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                 proc.is_selected = !proc.is_selected;
             }
         }
-        KeyCode::Char('k') => {
+        KeyCode::Char('x') => {
             // Open kill modal only if at least one process is selected
             let has_selected = app.processes.iter().any(|p| p.is_selected);
             if has_selected {
