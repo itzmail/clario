@@ -4,7 +4,7 @@ use crate::models::file_info::FileInfo;
 use crate::ui::{
     app_uninstaller::draw_app_uninstaller, components::draw_exit_modal, dashboard::draw_dashboard,
     file_manager::draw_file_manager, process_monitor::draw_process_monitor,
-    settings::draw_settings,
+    settings::draw_settings, update::draw_update,
 };
 use crossterm::event::{poll, read, Event, KeyCode};
 use crossterm::{
@@ -60,6 +60,13 @@ pub struct App {
     pub show_kill_confirm: bool,
     pub kill_confirm_selected: u8, // 0=Cancel, 1=Graceful(SIGTERM), 2=Force(SIGKILL)
     pub kill_status_message: Option<String>,
+
+    // Update fields
+    pub update_state: crate::core::updater::UpdateState,
+    pub update_releases: Vec<crate::core::updater::Release>,
+    pub update_selected: usize,
+    pub update_rx: Option<std::sync::mpsc::Receiver<crate::core::updater::UpdateEvent>>,
+    pub update_status: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -70,6 +77,7 @@ pub enum AppMode {
     Settings,
     AppUninstaller,
     ProcessMonitor,
+    Update,
 }
 
 impl App {
@@ -113,6 +121,11 @@ impl App {
             show_kill_confirm: false,
             kill_confirm_selected: 0, // Default to Cancel (safe)
             kill_status_message: None,
+            update_state: crate::core::updater::UpdateState::Idle,
+            update_releases: Vec::new(),
+            update_selected: 0,
+            update_rx: None,
+            update_status: String::new(),
         }
     }
 
@@ -229,6 +242,43 @@ impl App {
                 }
             }
 
+            // Poll update background task events
+            if let Some(ref mut rx) = self.update_rx {
+                while let Ok(event) = rx.try_recv() {
+                    match event {
+                        crate::core::updater::UpdateEvent::ReleasesLoaded(releases) => {
+                            self.update_releases = releases;
+                            self.update_state = crate::core::updater::UpdateState::Loaded;
+                            self.update_status = if self.update_releases.iter().any(|r| r.is_newer_than_current()) {
+                                "Update available!".to_string()
+                            } else {
+                                "You are on the latest version.".to_string()
+                            };
+                            self.update_rx = None;
+                            break;
+                        }
+                        crate::core::updater::UpdateEvent::Progress(msg) => {
+                            self.update_status = msg;
+                        }
+                        crate::core::updater::UpdateEvent::Done => {
+                            self.update_state = crate::core::updater::UpdateState::Done;
+                            self.update_status =
+                                "Update installed! Restart Clario to use the new version."
+                                    .to_string();
+                            self.update_rx = None;
+                            break;
+                        }
+                        crate::core::updater::UpdateEvent::Error(err) => {
+                            self.update_state =
+                                crate::core::updater::UpdateState::Error(err.clone());
+                            self.update_status = format!("Error: {}", err);
+                            self.update_rx = None;
+                            break;
+                        }
+                    }
+                }
+            }
+
             // Handle Sysinfo Throttling Rate Limit (refresh disk+ram stat every 2 secs)
             if self.last_sys_refresh.elapsed() >= std::time::Duration::from_secs(2) {
                 self.sys.refresh_all();
@@ -264,6 +314,7 @@ impl App {
                         draw_app_uninstaller(f, self);
                     }
                     AppMode::ProcessMonitor => draw_process_monitor(f, self),
+                    AppMode::Update => draw_update(f, self),
                 }
 
                 // Draw Exit Modal ON TOP of everything if requested
@@ -371,6 +422,29 @@ impl App {
                             }
                             continue;
                         }
+                        KeyCode::Char('?') => {
+                            self.mode = AppMode::Update;
+                            self.show_kill_confirm = false;
+                            self.kill_status_message = None;
+                            // Auto-check on first open
+                            if self.update_state == crate::core::updater::UpdateState::Idle {
+                                self.update_state = crate::core::updater::UpdateState::Checking;
+                                self.update_status = "Checking for updates...".to_string();
+                                let (tx, rx) = std::sync::mpsc::channel();
+                                self.update_rx = Some(rx);
+                                tokio::spawn(async move {
+                                    match crate::core::updater::fetch_releases().await {
+                                        Ok(releases) => {
+                                            let _ = tx.send(crate::core::updater::UpdateEvent::ReleasesLoaded(releases));
+                                        }
+                                        Err(e) => {
+                                            let _ = tx.send(crate::core::updater::UpdateEvent::Error(e.to_string()));
+                                        }
+                                    }
+                                });
+                            }
+                            continue;
+                        }
                         _ => {}
                     }
 
@@ -381,6 +455,7 @@ impl App {
                         AppMode::Settings => handlers::settings::handle_key(self, key),
                         AppMode::AppUninstaller => handlers::app_uninstaller::handle_key(self, key),
                         AppMode::ProcessMonitor => handlers::process_monitor::handle_key(self, key),
+                        AppMode::Update => handlers::update::handle_key(self, key),
                     }
                 }
             }

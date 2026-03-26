@@ -320,6 +320,8 @@ pub fn draw_dashboard(f: &mut Frame, app: &App) {
         "Settings  ".fg(theme.muted_text()),
         " [p] ".fg(theme.danger()).bold(),
         "Processes  ".fg(theme.muted_text()),
+        " [?] ".fg(theme.accent()).bold(),
+        "Update  ".fg(theme.muted_text()),
         " [↑↓] ".fg(theme.safe()).bold(),
         "Navigate".fg(theme.muted_text()),
     ]))
