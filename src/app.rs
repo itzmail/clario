@@ -136,6 +136,19 @@ impl App {
         let backend = CrosstermBackend::new(stdout);
         let mut terminal = Terminal::new(backend)?;
 
+        let res = self.event_loop(&mut terminal).await;
+
+        // Always restore terminal state, even on error
+        let _ = execute!(terminal.backend_mut(), LeaveAlternateScreen);
+        let _ = crossterm::terminal::disable_raw_mode();
+
+        res
+    }
+
+    async fn event_loop(
+        &mut self,
+        terminal: &mut ratatui::Terminal<CrosstermBackend<std::io::Stdout>>,
+    ) -> anyhow::Result<()> {
         while !self.should_quit {
             // Menerima stream scanning events dari background thread secara instan (non-blocking)
             if let Some(rx) = &mut self.scan_rx {
@@ -461,7 +474,6 @@ impl App {
             }
         }
 
-        execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
         Ok(())
     }
 }
