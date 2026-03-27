@@ -7,7 +7,7 @@ Dari codebase yang sudah ada (File Manager + App Uninstaller), Clario dikembangk
 ## Phases
 
 - [x] **Phase 1: TUI Refactor & Architecture Cleanup** - Unifikasi draw function signatures, fix architectural smells, dan dashboard stats dari data real
-- [ ] **Phase 2: Security — Process Monitor** - Scan running processes, flag suspicious, opsi kill
+- [x] **Phase 2: Security — Process Monitor** - Scan running processes, flag suspicious, opsi kill (completed 2026-03-27)
 - [ ] **Phase 3: Security — Vulnerability Audit** - LaunchAgents/Daemons audit, SUID/SGID detection, world-writable scan
 
 ## Phase Details
@@ -43,7 +43,7 @@ Plans:
 
 Plans:
 - [x] 02-01: Process scanner using sysinfo with suspicious detection logic
-- [ ] 02-02: Process Monitor TUI screen with detail panel and kill flow
+- [x] 02-02: Process Monitor TUI screen with detail panel and kill flow
 
 ### Phase 3: Security — Vulnerability Audit
 **Goal**: User bisa audit startup items (LaunchAgents/Daemons), SUID/SGID files, dan world-writable locations yang berpotensi jadi attack surface di macOS.
@@ -67,5 +67,5 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. TUI Refactor & Architecture Cleanup | 3/3 | Complete    | 2026-03-23 |
-| 2. Security — Process Monitor | 1/2 | In Progress|  |
+| 2. Security — Process Monitor | 2/2 | Complete   | 2026-03-27 |
 | 3. Security — Vulnerability Audit | 0/2 | Not started | - |

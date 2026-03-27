@@ -17,11 +17,11 @@
 
 ### Security — Process Monitor
 
-- [ ] **SEC-01**: User bisa membuka screen Process Monitor dari dashboard
+- [x] **SEC-01**: User bisa membuka screen Process Monitor dari dashboard
 - [x] **SEC-02**: App scan dan tampilkan semua running processes (nama, PID, CPU%, memory, path executable)
 - [x] **SEC-03**: App flag processes yang mencurigakan dengan kriteria yang jelas (path di luar /usr, /Applications, executable tidak dikenal, dsb)
-- [ ] **SEC-04**: User bisa melihat detail process yang dipilih
-- [ ] **SEC-05**: User bisa kill process dengan konfirmasi modal
+- [x] **SEC-04**: User bisa melihat detail process yang dipilih
+- [x] **SEC-05**: User bisa kill process dengan konfirmasi modal
 
 ### Security — Vulnerability Audit
 
@@ -82,11 +82,11 @@
 | REFAC-05 | Phase 1 | Complete (01-02) |
 | REFAC-06 | Phase 1 | Complete (01-02) |
 | REFAC-07 | Phase 1 | Complete (01-03) |
-| SEC-01 | Phase 2 | Pending |
+| SEC-01 | Phase 2 | Complete |
 | SEC-02 | Phase 2 | Complete |
 | SEC-03 | Phase 2 | Complete |
-| SEC-04 | Phase 2 | Pending |
-| SEC-05 | Phase 2 | Pending |
+| SEC-04 | Phase 2 | Complete |
+| SEC-05 | Phase 2 | Complete |
 | SEC-06 | Phase 3 | Pending |
 | SEC-07 | Phase 3 | Pending |
 | SEC-08 | Phase 3 | Pending |

@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-03-24T23:30:32.260Z"
+stopped_at: "Checkpoint: Task 3 human-verify — 02-02-PLAN.md"
+last_updated: "2026-03-27T14:37:57.097Z"
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
 ---
 
 # Clario — Project State
@@ -64,6 +64,8 @@ Features already shipped before GSD setup:
 - [Phase 02-security-process-monitor]: apply_rules() extracted as standalone function for testability without real sysinfo::System instance
 - [Phase 02-security-process-monitor]: exe=None skips D-01/D-02/D-03 — prevents false flags on SIP-protected macOS processes
 - [Phase 02-security-process-monitor]: format_memory/format_uptime co-located in process_scanner.rs for testability alongside scanner logic
+- [Phase 02-security-process-monitor]: Kill hotkey is 'x' not 'k' — avoids conflict with vim-style Up navigation ('k'); footer hint updated to match
+- [Phase 02-security-process-monitor]: Kill modal defaults to Cancel (index 0) for safety — user must actively navigate to destructive options
 
 ## Performance Metrics
 
@@ -73,8 +75,9 @@ Features already shipped before GSD setup:
 | 01-tui-refactor-architecture-cleanup | 02 | 8min | 2 | 11 |
 | 01-tui-refactor-architecture-cleanup | 03 | 3min | 2 | 6 |
 | Phase 02-security-process-monitor P01 | 8min | 2 tasks | 4 files |
+| Phase 02-security-process-monitor P02 | 15min | 2 tasks | 7 files |
 
 ## Session Info
 
-**Last session:** 2026-03-24T23:30:32.257Z
-**Stopped at:** Completed 02-01-PLAN.md
+**Last session:** 2026-03-27T14:37:09.427Z
+**Stopped at:** Checkpoint: Task 3 human-verify — 02-02-PLAN.md
