@@ -8,14 +8,22 @@ mod utils;
 
 use anyhow::Result;
 use app::App;
+use clap::Parser;
+use cli::{Cli, Command};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let args: Vec<String> = std::env::args().collect();
+    let cli = Cli::parse();
 
-    match cli::parse_command(&args) {
-        cli::Command::Update { version } => cli::run_update(version).await,
-        cli::Command::Tui => {
+    match cli.command {
+        Some(Command::Update { version }) => cli::update::run_update(version).await,
+        Some(Command::Clean {
+            category,
+            min_size,
+            force,
+            dry_run,
+        }) => cli::clean::run_clean(category, min_size, force, dry_run).await,
+        None => {
             let mut app = App::new();
             if let Err(err) = app.run().await {
                 eprintln!("Application error: {:?}", err);

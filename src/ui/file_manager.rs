@@ -108,6 +108,18 @@ pub fn draw_file_manager(f: &mut Frame, app: &mut App) {
                 FileCategory::Application => "App",
                 FileCategory::Archive => "Archive",
                 FileCategory::Other => "Other",
+                FileCategory::CargoBuild => "Cargo Build",
+                FileCategory::CargoCache => "Cargo Cache",
+                FileCategory::NodeModules => "node_modules",
+                FileCategory::NodeCache => "Node Cache",
+                FileCategory::Docker => "Docker",
+                FileCategory::GoBuild => "Go Build",
+                FileCategory::GoCache => "Go Cache",
+                FileCategory::PythonCache => "Python Cache",
+                FileCategory::PythonVenv => "Python Venv",
+                FileCategory::JavaGradle => "Gradle",
+                FileCategory::JavaMaven => "Maven",
+                FileCategory::RubyGems => "Ruby Gems",
             };
 
             let (mut icon_prefix, icon_color) = if file.is_dir {

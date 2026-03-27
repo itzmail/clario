@@ -1,4 +1,5 @@
 pub mod app_scanner;
+pub mod dev_scanner;
 pub mod events;
 pub mod file_ops;
 pub mod file_scanner;

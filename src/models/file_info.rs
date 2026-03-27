@@ -20,6 +20,19 @@ pub enum FileCategory {
     Application,
     Archive,
     Other,
+    // Developer toolchain categories
+    CargoBuild,
+    CargoCache,
+    NodeModules,
+    NodeCache,
+    Docker,
+    GoBuild,
+    GoCache,
+    PythonCache,
+    PythonVenv,
+    JavaGradle,
+    JavaMaven,
+    RubyGems,
 }
 
 /// DTO (Data Transfer Object) untuk setiap file yang kita scan.
