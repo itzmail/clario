@@ -4,7 +4,11 @@ pub mod update;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
-#[command(name = "clario", about = "System cleaning utility")]
+#[command(
+    name = "clario",
+    about = "System cleaning utility",
+    long_about = "Clario - Developer cache & system cleaner\n\nSubcommands:\n clean Clean developer caches, build artifacts, logs, and more\n  update   Check and install the latest version\n\nTips:\n  Run 'clario clean --help' for full list of clean targets\n  Use '--dry-run' to preview what would be deleted\n Use '--force' to skip confirmation prompt"
+)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Option<Command>,

@@ -255,17 +255,17 @@ pub fn scan_ruby() -> Vec<FileInfo> {
 }
 
 /// Scan system log directories (delegates to platform scan targets filtered to log paths).
-pub fn scan_logs() -> Vec<FileInfo> {
-    use crate::utils::platform::get_scan_targets;
-    get_scan_targets()
-        .into_iter()
-        .filter(|p| {
-            p.to_string_lossy().to_lowercase().contains("log")
-        })
-        .filter(|p| p.exists())
-        .filter_map(|p| dir_info(&p, FileCategory::Log, SafetyLevel::SafeToDelete))
-        .collect()
-}
+// pub fn scan_logs() -> Vec<FileInfo> {
+//     use crate::utils::platform::get_scan_targets;
+//     get_scan_targets()
+//         .into_iter()
+//         .filter(|p| {
+//             p.to_string_lossy().to_lowercase().contains("log")
+//         })
+//         .filter(|p| p.exists())
+//         .filter_map(|p| dir_info(&p, FileCategory::Log, SafetyLevel::SafeToDelete))
+//         .collect()
+// }
 
 /// Scan system cache directories (delegates to platform scan targets filtered to cache paths).
 pub fn scan_cache() -> Vec<FileInfo> {

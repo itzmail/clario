@@ -1,6 +1,6 @@
 [package]
 name = "clario"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 authors = ["Ismail Nur Alam <ismailnuralam@gmail.com>"]
 description = "System cleaning utility with TUI interface"

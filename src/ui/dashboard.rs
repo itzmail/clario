@@ -55,6 +55,7 @@ pub fn draw_dashboard(f: &mut Frame, app: &App) {
 
     // Paragraph is used to display text. We use `Line` and `Span` to apply
     // different styles (bold, colors) to different parts of the same text line.
+    let name_app = &format!("v{} - Terminal System Cleaner", env!("CARGO_PKG_VERSION"));
     let header = Paragraph::new(vec![Line::from(vec![
         Span::styled(
             " 🧹 Clario ",
@@ -63,7 +64,7 @@ pub fn draw_dashboard(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         ),
         Span::styled(
-            "v1.0 - Terminal System Cleaner",
+            name_app,
             Style::default().fg(theme.muted_text()),
         ),
     ])])

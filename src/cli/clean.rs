@@ -21,8 +21,6 @@ pub enum CleanCategory {
     Ruby,
     /// Clean Docker unused images, containers, volumes, and build cache
     Docker,
-    /// Clean system log files
-    Logs,
     /// Clean system cache directories
     Cache,
 }
@@ -133,9 +131,6 @@ fn gather_items(
                 eprintln!("{}", "Docker daemon not available, skipping.".yellow());
             }
         }
-        Some(CleanCategory::Logs) => {
-            items.extend(dev_scanner::scan_logs());
-        }
         Some(CleanCategory::Go) => {
             items.extend(dev_scanner::scan_go());
         }
@@ -159,7 +154,6 @@ fn gather_items(
             items.extend(dev_scanner::scan_python());
             items.extend(dev_scanner::scan_java());
             items.extend(dev_scanner::scan_ruby());
-            items.extend(dev_scanner::scan_logs());
             items.extend(dev_scanner::scan_cache());
             docker = dev_scanner::scan_docker();
         }
