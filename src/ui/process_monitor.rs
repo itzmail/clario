@@ -231,7 +231,7 @@ pub fn draw_process_monitor(f: &mut Frame, app: &mut App) {
     let footer = Paragraph::new(Line::from(vec![
         Span::styled(status_msg, Style::default().fg(theme.danger())),
         Span::styled(
-            "  [Space] Select  [k] Kill  [r] Refresh  [Esc/d] Dashboard",
+            "  [Space] Select  [x] Kill  [r] Refresh  [Esc/d] Dashboard",
             Style::default().fg(theme.muted_text()),
         ),
     ]))
