@@ -39,14 +39,14 @@ Plans:
   3. Suspicious processes diberi visual indicator yang berbeda (warna/ikon)
   4. User bisa kill process dengan confirm modal
   5. Tidak ada panic jika permission denied saat akses process info
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
 - [x] 02-01: Process scanner using sysinfo with suspicious detection logic
 - [x] 02-02: Process Monitor TUI screen with detail panel and kill flow
 
 ### Phase 3: Security — Vulnerability Audit
-**Goal**: User bisa audit startup items (LaunchAgents/Daemons), SUID/SGID files, dan world-writable locations yang berpotensi jadi attack surface di macOS.
+**Goal**: User bisa audit startup items (LaunchAgents/Daemons di macOS; systemd units & cron di Linux), SUID/SGID files, dan world-writable locations yang berpotensi jadi attack surface — cross-platform macOS dan Linux.
 **Depends on**: Phase 2
 **Requirements**: SEC-06, SEC-07, SEC-08, SEC-09, SEC-10, SEC-11, SEC-12
 **Success Criteria** (what must be TRUE):
@@ -56,11 +56,11 @@ Plans:
   4. World-writable files/dirs di lokasi sensitif terdeteksi
   5. User bisa disable/remove LaunchAgent atau LaunchDaemon dengan backup
   6. Audit scan selesai dalam < 5 detik untuk macOS default setup
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: Vulnerability scanner (LaunchAgents, SUID/SGID, world-writable)
-- [ ] 03-02: Vulnerability Audit TUI screen with findings detail and remediation flow
+- [ ] 03-01-PLAN.md — VulnFinding model + cross-platform VulnerabilityScanner (startup items, SUID/SGID, world-writable)
+- [ ] 03-02-PLAN.md — Vulnerability Audit TUI screen with findings detail panel and disable/remove action flow
 
 ## Progress
 
@@ -69,3 +69,14 @@ Plans:
 | 1. TUI Refactor & Architecture Cleanup | 3/3 | Complete    | 2026-03-23 |
 | 2. Security — Process Monitor | 2/2 | Complete   | 2026-03-27 |
 | 3. Security — Vulnerability Audit | 0/2 | Not started | - |
+| 4. Linux Compatibility | 0/? | Not planned | - |
+
+### Phase 4: Linux Compatibility
+
+**Goal:** Clario berfungsi penuh di Linux — CLI clean, TUI, dan fitur core bekerja di distro umum (Ubuntu/Debian/Arch), dengan graceful degradation untuk fitur yang memang macOS-only.
+**Depends on:** Phase 3
+**Requirements**: TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 4 to break down)
