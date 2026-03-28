@@ -1,4 +1,5 @@
 use crate::models::file_info::{FileCategory, FileInfo, SafetyLevel};
+use crate::utils::paths::Paths;
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -28,23 +29,18 @@ impl DockerInfo {
 }
 
 /// Scan Cargo cache and project target/ directories.
-/// Returns a flat list of FileInfo entries, each representing a directory.
 pub fn scan_cargo() -> Vec<FileInfo> {
     let mut results = Vec::new();
+    let Some(paths) = Paths::new() else { return results };
 
-    // Global: ~/.cargo/registry/cache and src
-    if let Some(home) = dirs::home_dir() {
-        for subdir in &["registry/cache", "registry/src"] {
-            let path = home.join(".cargo").join(subdir);
-            if path.exists() {
-                if let Some(info) = dir_info(&path, FileCategory::CargoCache, SafetyLevel::SafeToDelete) {
-                    results.push(info);
-                }
+    for path in &[&paths.cargo_registry_cache, &paths.cargo_registry_src] {
+        if path.exists() {
+            if let Some(info) = dir_info(path, FileCategory::CargoCache, SafetyLevel::SafeToDelete) {
+                results.push(info);
             }
         }
     }
 
-    // Local: if CWD is a Cargo project, scan ./target/
     if cwd_has_marker(&["Cargo.toml"]) {
         if let Some(cwd) = cwd() {
             let target = cwd.join("target");
@@ -62,29 +58,22 @@ pub fn scan_cargo() -> Vec<FileInfo> {
 /// Scan Node.js caches and project node_modules/ directories.
 pub fn scan_node() -> Vec<FileInfo> {
     let mut results = Vec::new();
+    let Some(paths) = Paths::new() else { return results };
 
-    // Global: npm and pnpm caches
-    if let Some(home) = dirs::home_dir() {
-        let npm_cache = home.join(".npm/_cacache");
-        if npm_cache.exists() {
-            if let Some(info) = dir_info(&npm_cache, FileCategory::NodeCache, SafetyLevel::SafeToDelete) {
-                results.push(info);
-            }
+    if paths.npm_cache.exists() {
+        if let Some(info) = dir_info(&paths.npm_cache, FileCategory::NodeCache, SafetyLevel::SafeToDelete) {
+            results.push(info);
         }
+    }
 
-        for pnpm_path in &[
-            home.join(".pnpm-store"),
-            home.join(".local/share/pnpm/store"),
-        ] {
-            if pnpm_path.exists() {
-                if let Some(info) = dir_info(pnpm_path, FileCategory::NodeCache, SafetyLevel::SafeToDelete) {
-                    results.push(info);
-                }
+    for pnpm_path in &paths.pnpm_stores {
+        if pnpm_path.exists() {
+            if let Some(info) = dir_info(pnpm_path, FileCategory::NodeCache, SafetyLevel::SafeToDelete) {
+                results.push(info);
             }
         }
     }
 
-    // Local: if CWD is a Node project, scan ./node_modules/
     if cwd_has_marker(&["package.json"]) {
         if let Some(cwd) = cwd() {
             let node_modules = cwd.join("node_modules");
@@ -140,25 +129,18 @@ pub fn scan_docker() -> Option<DockerInfo> {
 /// Scan Go module cache and build cache.
 pub fn scan_go() -> Vec<FileInfo> {
     let mut results = Vec::new();
+    let Some(paths) = Paths::new() else { return results };
 
-    if let Some(home) = dirs::home_dir() {
-        // Go module cache
-        let mod_cache = home.join("go/pkg/mod");
-        if mod_cache.exists() {
-            if let Some(info) = dir_info(&mod_cache, FileCategory::GoCache, SafetyLevel::SafeToDelete) {
-                results.push(info);
-            }
+    if paths.go_mod_cache.exists() {
+        if let Some(info) = dir_info(&paths.go_mod_cache, FileCategory::GoCache, SafetyLevel::SafeToDelete) {
+            results.push(info);
         }
+    }
 
-        // Go build cache (~/.cache/go-build on Linux, ~/Library/Caches/go-build on macOS)
-        for go_build in &[
-            home.join("Library/Caches/go-build"),
-            home.join(".cache/go-build"),
-        ] {
-            if go_build.exists() {
-                if let Some(info) = dir_info(go_build, FileCategory::GoBuild, SafetyLevel::SafeToDelete) {
-                    results.push(info);
-                }
+    for go_build in &paths.go_build_caches {
+        if go_build.exists() {
+            if let Some(info) = dir_info(go_build, FileCategory::GoBuild, SafetyLevel::SafeToDelete) {
+                results.push(info);
             }
         }
     }
@@ -169,22 +151,16 @@ pub fn scan_go() -> Vec<FileInfo> {
 /// Scan Python pip cache and project __pycache__ / venv directories.
 pub fn scan_python() -> Vec<FileInfo> {
     let mut results = Vec::new();
+    let Some(paths) = Paths::new() else { return results };
 
-    // Global: pip cache
-    if let Some(home) = dirs::home_dir() {
-        for pip_cache in &[
-            home.join("Library/Caches/pip"),
-            home.join(".cache/pip"),
-        ] {
-            if pip_cache.exists() {
-                if let Some(info) = dir_info(pip_cache, FileCategory::PythonCache, SafetyLevel::SafeToDelete) {
-                    results.push(info);
-                }
+    for pip_cache in &paths.pip_caches {
+        if pip_cache.exists() {
+            if let Some(info) = dir_info(pip_cache, FileCategory::PythonCache, SafetyLevel::SafeToDelete) {
+                results.push(info);
             }
         }
     }
 
-    // Local: if CWD is a Python project, scan __pycache__ and venv dirs
     if cwd_has_marker(&["requirements.txt", "pyproject.toml", "setup.py", "setup.cfg"]) {
         if let Some(cwd) = cwd() {
             find_named_dirs(&cwd.clone().into(), "__pycache__", 5, FileCategory::PythonCache, SafetyLevel::SafeToDelete, &mut results);
@@ -205,25 +181,20 @@ pub fn scan_python() -> Vec<FileInfo> {
 /// Scan Java Gradle and Maven caches.
 pub fn scan_java() -> Vec<FileInfo> {
     let mut results = Vec::new();
+    let Some(paths) = Paths::new() else { return results };
 
-    // Global: ~/.gradle/caches and ~/.m2/repository
-    if let Some(home) = dirs::home_dir() {
-        let gradle_cache = home.join(".gradle/caches");
-        if gradle_cache.exists() {
-            if let Some(info) = dir_info(&gradle_cache, FileCategory::JavaGradle, SafetyLevel::SafeToDelete) {
-                results.push(info);
-            }
-        }
-
-        let maven_repo = home.join(".m2/repository");
-        if maven_repo.exists() {
-            if let Some(info) = dir_info(&maven_repo, FileCategory::JavaMaven, SafetyLevel::SafeToDelete) {
-                results.push(info);
-            }
+    if paths.gradle_cache.exists() {
+        if let Some(info) = dir_info(&paths.gradle_cache, FileCategory::JavaGradle, SafetyLevel::SafeToDelete) {
+            results.push(info);
         }
     }
 
-    // Local: if CWD is a Gradle project, scan local .gradle/
+    if paths.maven_repo.exists() {
+        if let Some(info) = dir_info(&paths.maven_repo, FileCategory::JavaMaven, SafetyLevel::SafeToDelete) {
+            results.push(info);
+        }
+    }
+
     if cwd_has_marker(&["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"]) {
         if let Some(cwd) = cwd() {
             let local_gradle = cwd.join(".gradle");
@@ -241,42 +212,26 @@ pub fn scan_java() -> Vec<FileInfo> {
 /// Scan Ruby gems cache.
 pub fn scan_ruby() -> Vec<FileInfo> {
     let mut results = Vec::new();
+    let Some(paths) = Paths::new() else { return results };
 
-    if let Some(home) = dirs::home_dir() {
-        let gem_dir = home.join(".gem");
-        if gem_dir.exists() {
-            if let Some(info) = dir_info(&gem_dir, FileCategory::RubyGems, SafetyLevel::SafeToDelete) {
-                results.push(info);
-            }
+    if paths.gem_dir.exists() {
+        if let Some(info) = dir_info(&paths.gem_dir, FileCategory::RubyGems, SafetyLevel::SafeToDelete) {
+            results.push(info);
         }
     }
 
     results
 }
 
-/// Scan system log directories (delegates to platform scan targets filtered to log paths).
-// pub fn scan_logs() -> Vec<FileInfo> {
-//     use crate::utils::platform::get_scan_targets;
-//     get_scan_targets()
-//         .into_iter()
-//         .filter(|p| {
-//             p.to_string_lossy().to_lowercase().contains("log")
-//         })
-//         .filter(|p| p.exists())
-//         .filter_map(|p| dir_info(&p, FileCategory::Log, SafetyLevel::SafeToDelete))
-//         .collect()
-// }
-
-/// Scan system cache directories (delegates to platform scan targets filtered to cache paths).
+/// Scan system cache directories.
 pub fn scan_cache() -> Vec<FileInfo> {
-    use crate::utils::platform::get_scan_targets;
-    get_scan_targets()
+    let Some(paths) = Paths::new() else { return vec![] };
+
+    paths
+        .system_cache_dirs()
         .into_iter()
-        .filter(|p| {
-            p.to_string_lossy().to_lowercase().contains("cache")
-        })
         .filter(|p| p.exists())
-        .filter_map(|p| dir_info(&p, FileCategory::Cache, SafetyLevel::SafeToDelete))
+        .filter_map(|p| dir_info(p, FileCategory::Cache, SafetyLevel::SafeToDelete))
         .collect()
 }
 
@@ -304,7 +259,6 @@ fn dir_size(path: &Path) -> u64 {
 }
 
 /// Walk `root` up to `max_depth` levels and collect directories named `target_name`.
-/// Skips descending into matched directories (avoids scanning inside node_modules/node_modules).
 fn find_named_dirs(
     root: &PathBuf,
     target_name: &str,
@@ -313,7 +267,6 @@ fn find_named_dirs(
     safety: SafetyLevel,
     results: &mut Vec<FileInfo>,
 ) {
-    // filter_entry skips descending into matched dirs (avoids scanning inside node_modules/node_modules)
     let walker = WalkDir::new(root)
         .max_depth(max_depth)
         .into_iter()
@@ -335,6 +288,5 @@ fn find_named_dirs(
 
 /// Parse Docker's human-readable size strings like "1.2GB", "345MB".
 fn parse_docker_size(s: &str) -> u64 {
-    // Docker uses formats like "1.234GB", "345MB", "0B"
     crate::utils::size::parse_size(s).unwrap_or(0)
 }
