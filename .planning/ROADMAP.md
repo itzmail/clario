@@ -77,7 +77,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md — Platform abstraction: cfg-gate macOS deps, adapt process scanner, platform-aware UI
+- [x] 04-01-PLAN.md — Platform abstraction: cfg-gate macOS deps, adapt process scanner, platform-aware UI
 - [ ] 04-02-PLAN.md — Linux test coverage, CLI clean verification, dead-code cleanup
 
 ## Progress
@@ -87,4 +87,4 @@ Plans:
 | 1. TUI Refactor & Architecture Cleanup | 3/3 | Complete    | 2026-03-23 |
 | 2. Security — Process Monitor | 2/2 | Complete   | 2026-03-27 |
 | 3. Security — Vulnerability Audit | 0/2 | Not started | - |
-| 4. Linux Compatibility | 0/2 | Not started | - |
+| 4. Linux Compatibility | 1/2 | In Progress|  |

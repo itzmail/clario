@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 02-02-PLAN.md
-last_updated: "2026-03-27T14:42:46.051Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-29T10:26:52.439Z"
 progress:
-  total_phases: 3
+  total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 9
+  completed_plans: 6
 ---
 
 # Clario — Project State
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-23)
 
 **Core value:** Bersihkan sistem secara menyeluruh dan aman — tanpa GUI overhead, tanpa residue yang tertinggal.
-**Current focus:** Phase 02 — security-process-monitor
+**Current focus:** Phase 04 — linux-compatibility
 
 ## Current Status
 
@@ -36,7 +36,7 @@ See: .planning/PROJECT.md (updated 2026-03-23)
 
 ## Current Position
 
-Phase: 02 (security-process-monitor) — EXECUTING
+Phase: 04 (linux-compatibility) — EXECUTING
 Plan: 2 of 2
 
 ## Existing Codebase (Phase 0)
@@ -66,6 +66,10 @@ Features already shipped before GSD setup:
 - [Phase 02-security-process-monitor]: format_memory/format_uptime co-located in process_scanner.rs for testability alongside scanner logic
 - [Phase 02-security-process-monitor]: Kill hotkey is 'x' not 'k' — avoids conflict with vim-style Up navigation ('k'); footer hint updated to match
 - [Phase 02-security-process-monitor]: Kill modal defaults to Cancel (index 0) for safety — user must actively navigate to destructive options
+- [Phase 04-linux-compatibility]: reqwest default-features=false removes native-tls/openssl; rustls-tls alone is sufficient and builds on Linux without system SSL libraries
+- [Phase 04-linux-compatibility]: plist moved to target.'cfg(target_os=macos)'.dependencies so it is not fetched or compiled on Linux at all
+- [Phase 04-linux-compatibility]: app_scanner.rs uses file-level #![cfg] rather than item-level #[cfg] on each pub item — simpler and intent is clearer
+- [Phase 04-linux-compatibility]: apps Vec<AppInfo> field kept on all platforms (empty on Linux) — avoids requiring #[cfg] throughout all consumers
 
 ## Performance Metrics
 
@@ -76,8 +80,15 @@ Features already shipped before GSD setup:
 | 01-tui-refactor-architecture-cleanup | 03 | 3min | 2 | 6 |
 | Phase 02-security-process-monitor P01 | 8min | 2 tasks | 4 files |
 | Phase 02-security-process-monitor P02 | 15min | 2 tasks | 7 files |
+| Phase 04-linux-compatibility P01 | 3min | 2 tasks | 8 files |
 
 ## Session Info
 
-**Last session:** 2026-03-27T14:41:39.370Z
-**Stopped at:** Completed 02-02-PLAN.md
+**Last session:** 2026-03-29T10:26:52.436Z
+**Stopped at:** Completed 04-01-PLAN.md
+
+## Accumulated Context
+
+### Roadmap Evolution
+
+- Phase 4 added: Linux Compatibility — CLI clean, TUI, dan fitur core di Linux; graceful degradation untuk fitur macOS-only

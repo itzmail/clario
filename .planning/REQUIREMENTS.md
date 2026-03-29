@@ -35,10 +35,10 @@
 
 ### Linux Compatibility
 
-- [ ] **LINUX-01**: `cargo build` compiles on Linux without errors (reqwest TLS fix, plist cfg-gate)
-- [ ] **LINUX-02**: Process scanner uses platform-appropriate trusted paths on Linux (/opt/, /snap/, /flatpak/, /nix/)
-- [ ] **LINUX-03**: UI text is platform-aware (no "Mac" references on Linux)
-- [ ] **LINUX-04**: App Uninstaller degrades gracefully on Linux (shows "macOS only" message instead of scanning)
+- [x] **LINUX-01**: `cargo build` compiles on Linux without errors (reqwest TLS fix, plist cfg-gate)
+- [x] **LINUX-02**: Process scanner uses platform-appropriate trusted paths on Linux (/opt/, /snap/, /flatpak/, /nix/)
+- [x] **LINUX-03**: UI text is platform-aware (no "Mac" references on Linux)
+- [x] **LINUX-04**: App Uninstaller degrades gracefully on Linux (shows "macOS only" message instead of scanning)
 - [ ] **LINUX-05**: CLI `clean` command works on Linux (scan targets, trash via freedesktop spec)
 - [ ] **LINUX-06**: All existing tests pass on Linux target, new Linux-specific tests added
 
@@ -103,10 +103,10 @@
 | SEC-10 | Phase 3 | Pending |
 | SEC-11 | Phase 3 | Pending |
 | SEC-12 | Phase 3 | Pending |
-| LINUX-01 | Phase 4 | Pending |
-| LINUX-02 | Phase 4 | Pending |
-| LINUX-03 | Phase 4 | Pending |
-| LINUX-04 | Phase 4 | Pending |
+| LINUX-01 | Phase 4 | Complete |
+| LINUX-02 | Phase 4 | Complete |
+| LINUX-03 | Phase 4 | Complete |
+| LINUX-04 | Phase 4 | Complete |
 | LINUX-05 | Phase 4 | Pending |
 | LINUX-06 | Phase 4 | Pending |
 
