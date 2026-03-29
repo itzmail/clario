@@ -321,4 +321,45 @@ mod tests {
         assert_eq!(format_uptime(90), "1m 30s", "90 seconds should format as 1m 30s");
         assert_eq!(format_uptime(3661), "1h 1m", "3661 seconds should format as 1h 1m");
     }
+
+    // --- Cross-platform: /tmp is untrusted everywhere ---
+    #[test]
+    fn test_tmp_suspicious_all_platforms() {
+        let flags = apply_rules("evil", Some("/tmp/evil"), None, 0.0);
+        assert!(
+            flags.iter().any(|f| matches!(f, SuspicionFlag::SuspiciousPath(_))),
+            "/tmp/evil should be suspicious on all platforms"
+        );
+    }
+
+    // --- Linux-specific trusted path tests ---
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_linux_opt_trusted() {
+        let flags = apply_rules("someapp", Some("/opt/someapp/bin/app"), None, 0.0);
+        assert!(
+            !flags.iter().any(|f| matches!(f, SuspicionFlag::SuspiciousPath(_))),
+            "/opt/ should be trusted on Linux"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_linux_snap_trusted() {
+        let flags = apply_rules("snap", Some("/snap/core/current/usr/bin/snap"), None, 0.0);
+        assert!(
+            !flags.iter().any(|f| matches!(f, SuspicionFlag::SuspiciousPath(_))),
+            "/snap/ should be trusted on Linux"
+        );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_linux_systemd_root_not_flagged() {
+        let flags = apply_rules("systemd", Some("/usr/lib/systemd/systemd"), Some(0), 0.0);
+        assert!(
+            !flags.iter().any(|f| matches!(f, SuspicionFlag::RootOutsideSystemPath(_))),
+            "systemd running as root should not be flagged on Linux"
+        );
+    }
 }
