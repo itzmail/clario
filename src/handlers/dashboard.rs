@@ -37,7 +37,8 @@ pub fn handle_key(app: &mut App, key: KeyEvent) {
                     // Pindah UI ke App Uninstaller
                     app.mode = AppMode::AppUninstaller;
 
-                    // Kickoff scan hanya jika belum ada data apps yang di-cache
+                    // Kickoff scan hanya jika belum ada data apps yang di-cache (macOS-only: app bundles)
+                    #[cfg(target_os = "macos")]
                     if app.apps.is_empty() && !app.is_scanning {
                         app.is_scanning = true;
                         app.scan_progress_text = String::new();
