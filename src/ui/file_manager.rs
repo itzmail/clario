@@ -37,7 +37,7 @@ pub fn draw_file_manager(f: &mut Frame, app: &mut App) {
             .split(size);
 
         let loading_text = format!(
-            "⏳ Scanning your Mac for junk files... Please wait.\n\nScanning: {}",
+            "⏳ Scanning your system for junk files... Please wait.\n\nScanning: {}",
             scan_progress_text
         );
 

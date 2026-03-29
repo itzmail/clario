@@ -213,7 +213,13 @@ pub fn draw_dashboard(f: &mut Frame, app: &App) {
         Line::from(vec![
             Span::raw("  "),
             Span::raw(m2_prefix),
-            Span::styled("📦 [u] Deep App Uninstaller", m2_style),
+            {
+                #[cfg(target_os = "macos")]
+                let uninstaller_label = "📦 [u] Deep App Uninstaller";
+                #[cfg(not(target_os = "macos"))]
+                let uninstaller_label = "📦 [u] Deep App Uninstaller (macOS)";
+                Span::styled(uninstaller_label, m2_style)
+            },
         ]),
         Line::from(
             format!("      Eradicate applications & hidden library junk").fg(theme.muted_text()),

@@ -65,6 +65,33 @@ pub fn draw_app_uninstaller(f: &mut Frame, app: &mut App) {
         );
     f.render_widget(header, chunks[0]);
 
+    // On non-macOS platforms, show "not available" message since app scanning is macOS-only
+    #[cfg(not(target_os = "macos"))]
+    if app.apps.is_empty() && !app.is_scanning {
+        let layout = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Percentage(35),
+                Constraint::Length(7),
+                Constraint::Percentage(35),
+            ])
+            .split(chunks[1]);
+
+        let msg = Paragraph::new(
+            "Deep App Uninstaller is a macOS-only feature.\n\n.app bundles and Library metadata don't exist on this platform.\n\nPress [Esc] to return to Dashboard.",
+        )
+        .style(Style::default().fg(theme.muted_text()))
+        .alignment(Alignment::Center)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(theme.muted_text())),
+        );
+        f.render_widget(msg, layout[1]);
+        return;
+    }
+
     // Jika sedang nge-scan, tampilkan layar loading
     if app.apps.is_empty() && app.is_scanning {
         let scan_layout = Layout::default()

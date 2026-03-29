@@ -3,6 +3,7 @@ use std::path::Path;
 use sysinfo::System;
 
 /// Trusted root paths for D-01: executables in these directories are not flagged
+#[cfg(target_os = "macos")]
 const TRUSTED_PATHS: &[&str] = &[
     "/usr/",
     "/bin/",
@@ -12,8 +13,29 @@ const TRUSTED_PATHS: &[&str] = &[
     "/Library/",
 ];
 
+#[cfg(target_os = "linux")]
+const TRUSTED_PATHS: &[&str] = &[
+    "/usr/",
+    "/bin/",
+    "/sbin/",
+    "/opt/",
+    "/snap/",
+    "/flatpak/",
+    "/nix/",
+];
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+const TRUSTED_PATHS: &[&str] = &["/usr/", "/bin/", "/sbin/"];
+
 /// System paths for D-03: root processes in these directories are not flagged
+#[cfg(target_os = "macos")]
 const ROOT_SYSTEM_PATHS: &[&str] = &["/System/", "/usr/sbin/", "/sbin/"];
+
+#[cfg(target_os = "linux")]
+const ROOT_SYSTEM_PATHS: &[&str] = &["/usr/sbin/", "/sbin/", "/usr/lib/systemd/"];
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+const ROOT_SYSTEM_PATHS: &[&str] = &["/usr/sbin/", "/sbin/"];
 
 /// Known bad name patterns for D-05 (lowercase substrings)
 const KNOWN_BAD_PATTERNS: &[&str] = &["xmrig", "cryptonight", "miner"];
