@@ -33,6 +33,15 @@
 - [ ] **SEC-11**: User bisa melihat detail tiap vulnerability finding (path, permission, risk level)
 - [ ] **SEC-12**: User bisa disable/remove LaunchAgent atau LaunchDaemon dengan konfirmasi
 
+### Linux Compatibility
+
+- [ ] **LINUX-01**: `cargo build` compiles on Linux without errors (reqwest TLS fix, plist cfg-gate)
+- [ ] **LINUX-02**: Process scanner uses platform-appropriate trusted paths on Linux (/opt/, /snap/, /flatpak/, /nix/)
+- [ ] **LINUX-03**: UI text is platform-aware (no "Mac" references on Linux)
+- [ ] **LINUX-04**: App Uninstaller degrades gracefully on Linux (shows "macOS only" message instead of scanning)
+- [ ] **LINUX-05**: CLI `clean` command works on Linux (scan targets, trash via freedesktop spec)
+- [ ] **LINUX-06**: All existing tests pass on Linux target, new Linux-specific tests added
+
 
 ## v2 Requirements
 
@@ -67,7 +76,7 @@
 |---------|--------|
 | External antivirus (ClamAV, YARA) v1 | Distribusi binary eksternal, kompleksitas tinggi — v2 |
 | Tauri desktop build | Menunggu core library extraction; API perlu stabil dulu |
-| Windows/Linux security features | SUID/LaunchAgents macOS-specific; lintas platform nanti |
+| Windows security features | Windows support bukan prioritas — fokus macOS + Linux |
 | Real-time file system watcher | Complexity tinggi, bukan prioritas cleaner workflow |
 | Cloud sync / backup integration | Out of scope untuk system cleaner |
 
@@ -94,11 +103,18 @@
 | SEC-10 | Phase 3 | Pending |
 | SEC-11 | Phase 3 | Pending |
 | SEC-12 | Phase 3 | Pending |
+| LINUX-01 | Phase 4 | Pending |
+| LINUX-02 | Phase 4 | Pending |
+| LINUX-03 | Phase 4 | Pending |
+| LINUX-04 | Phase 4 | Pending |
+| LINUX-05 | Phase 4 | Pending |
+| LINUX-06 | Phase 4 | Pending |
+
 **Coverage:**
-- v1 requirements: 19 total
-- Mapped to phases: 19
-- Unmapped: 0 ✓
+- v1 requirements: 25 total
+- Mapped to phases: 25
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-23*
-*Last updated: 2026-03-23 after 01-02 completion (REFAC-03, REFAC-04, REFAC-05, REFAC-06 complete)*
+*Last updated: 2026-03-29 — added LINUX-01 through LINUX-06 for Phase 4*

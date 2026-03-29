@@ -9,6 +9,7 @@ Dari codebase yang sudah ada (File Manager + App Uninstaller), Clario dikembangk
 - [x] **Phase 1: TUI Refactor & Architecture Cleanup** - Unifikasi draw function signatures, fix architectural smells, dan dashboard stats dari data real
 - [x] **Phase 2: Security — Process Monitor** - Scan running processes, flag suspicious, opsi kill (completed 2026-03-27)
 - [ ] **Phase 3: Security — Vulnerability Audit** - LaunchAgents/Daemons audit, SUID/SGID detection, world-writable scan
+- [ ] **Phase 4: Linux Compatibility** - CLI clean, TUI, dan fitur core bekerja di Linux; graceful degradation untuk macOS-only features
 
 ## Phase Details
 
@@ -62,6 +63,23 @@ Plans:
 - [ ] 03-01-PLAN.md — VulnFinding model + cross-platform VulnerabilityScanner (startup items, SUID/SGID, world-writable)
 - [ ] 03-02-PLAN.md — Vulnerability Audit TUI screen with findings detail panel and disable/remove action flow
 
+### Phase 4: Linux Compatibility
+**Goal:** Clario berfungsi penuh di Linux — CLI clean, TUI, dan fitur core bekerja di distro umum (Ubuntu/Debian/Arch), dengan graceful degradation untuk fitur yang memang macOS-only.
+**Depends on:** Phase 3
+**Requirements**: LINUX-01, LINUX-02, LINUX-03, LINUX-04, LINUX-05, LINUX-06
+**Success Criteria** (what must be TRUE):
+  1. `cargo build` compiles on Linux without errors
+  2. Process scanner uses Linux-appropriate trusted paths (/opt/, /snap/, /flatpak/, /nix/)
+  3. UI text shows no macOS-specific references on Linux
+  4. App Uninstaller shows graceful degradation message on Linux
+  5. CLI clean command works on Linux
+  6. All existing tests pass, new Linux-specific tests added
+**Plans**: 2 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Platform abstraction: cfg-gate macOS deps, adapt process scanner, platform-aware UI
+- [ ] 04-02-PLAN.md — Linux test coverage, CLI clean verification, dead-code cleanup
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -69,14 +87,4 @@ Plans:
 | 1. TUI Refactor & Architecture Cleanup | 3/3 | Complete    | 2026-03-23 |
 | 2. Security — Process Monitor | 2/2 | Complete   | 2026-03-27 |
 | 3. Security — Vulnerability Audit | 0/2 | Not started | - |
-| 4. Linux Compatibility | 0/? | Not planned | - |
-
-### Phase 4: Linux Compatibility
-
-**Goal:** Clario berfungsi penuh di Linux — CLI clean, TUI, dan fitur core bekerja di distro umum (Ubuntu/Debian/Arch), dengan graceful degradation untuk fitur yang memang macOS-only.
-**Depends on:** Phase 3
-**Requirements**: TBD
-**Plans:** 0 plans
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 4 to break down)
+| 4. Linux Compatibility | 0/2 | Not started | - |
