@@ -391,7 +391,8 @@ impl App {
                             self.mode = AppMode::AppUninstaller;
                             self.show_kill_confirm = false;
                             self.kill_status_message = None;
-                            // Kickoff the uninstaller thread load
+                            // Kickoff the uninstaller thread load (macOS-only: app bundles don't exist on Linux)
+                            #[cfg(target_os = "macos")]
                             if self.apps.is_empty() && !self.is_scanning {
                                 self.is_scanning = true;
                                 self.scan_progress_text = String::new();

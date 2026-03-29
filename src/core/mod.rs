@@ -1,3 +1,4 @@
+#[cfg(target_os = "macos")]
 pub mod app_scanner;
 pub mod dev_scanner;
 pub mod events;

@@ -1,3 +1,5 @@
+#![cfg(target_os = "macos")]
+
 use crate::core::events::ScanEvent;
 use crate::models::{app_info::AppInfo, file_info::FileInfo};
 use std::path::PathBuf;
