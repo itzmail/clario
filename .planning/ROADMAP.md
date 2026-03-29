@@ -78,7 +78,7 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md — Platform abstraction: cfg-gate macOS deps, adapt process scanner, platform-aware UI
-- [ ] 04-02-PLAN.md — Linux test coverage, CLI clean verification, dead-code cleanup
+- [x] 04-02-PLAN.md — Linux test coverage, CLI clean verification, dead-code cleanup
 
 ## Progress
 

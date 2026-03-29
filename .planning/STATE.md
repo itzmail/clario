@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-03-29T10:26:52.439Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-03-29T10:31:02.513Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Clario — Project State
@@ -70,6 +70,8 @@ Features already shipped before GSD setup:
 - [Phase 04-linux-compatibility]: plist moved to target.'cfg(target_os=macos)'.dependencies so it is not fetched or compiled on Linux at all
 - [Phase 04-linux-compatibility]: app_scanner.rs uses file-level #![cfg] rather than item-level #[cfg] on each pub item — simpler and intent is clearer
 - [Phase 04-linux-compatibility]: apps Vec<AppInfo> field kept on all platforms (empty on Linux) — avoids requiring #[cfg] throughout all consumers
+- [Phase Phase 04-linux-compatibility]: Linux-specific tests gated with #[cfg(target_os = "linux")] — they test paths that only exist/matter on Linux
+- [Phase Phase 04-linux-compatibility]: dashboard.rs app_scanner spawn: missing #[cfg(target_os = "macos")] guard added — matches pattern in app.rs hotkey handler
 
 ## Performance Metrics
 
@@ -81,11 +83,12 @@ Features already shipped before GSD setup:
 | Phase 02-security-process-monitor P01 | 8min | 2 tasks | 4 files |
 | Phase 02-security-process-monitor P02 | 15min | 2 tasks | 7 files |
 | Phase 04-linux-compatibility P01 | 3min | 2 tasks | 8 files |
+| Phase 04-linux-compatibility P02 | 6min | 2 tasks | 2 files |
 
 ## Session Info
 
-**Last session:** 2026-03-29T10:26:52.436Z
-**Stopped at:** Completed 04-01-PLAN.md
+**Last session:** 2026-03-29T10:31:02.511Z
+**Stopped at:** Completed 04-02-PLAN.md
 
 ## Accumulated Context
 
