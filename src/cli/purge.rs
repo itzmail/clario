@@ -3,7 +3,8 @@ use crate::utils::size::{format_size, parse_size};
 use crate::utils::spinner::spin;
 use anyhow::Result;
 use colored::Colorize;
-use std::io::{self, Write};
+use dialoguer::MultiSelect;
+use std::io::{self, IsTerminal, Write};
 
 const RECENT_THRESHOLD_DAYS: u32 = 7;
 
@@ -43,9 +44,22 @@ pub async fn run_purge(
 
     let candidates = spin("Scanning projects", move || purge_scanner::scan(&search_paths, RECENT_THRESHOLD_DAYS));
     println!("{}", format_size(candidates.iter().map(|c| c.artifact.size_bytes).sum::<u64>()).cyan());
+
+    #[cfg(target_os = "macos")]
+    let whitelist = crate::core::protection::load_whitelist();
+
     let filtered: Vec<PurgeCandidate> = candidates
         .into_iter()
         .filter(|c| c.artifact.size_bytes >= min_bytes)
+        .filter(|c| {
+            #[cfg(target_os = "macos")]
+            {
+                use crate::core::protection;
+                return protection::is_safe_to_delete(&c.artifact.path) && !protection::is_path_whitelisted(&c.artifact.path, &whitelist);
+            }
+            #[cfg(not(target_os = "macos"))]
+            true
+        })
         .collect();
 
     if filtered.is_empty() {
@@ -56,12 +70,12 @@ pub async fn run_purge(
     println!();
     print_summary(&filtered);
 
-    let to_delete: Vec<&PurgeCandidate> = filtered
+    let candidates: Vec<&PurgeCandidate> = filtered
         .iter()
         .filter(|c| include_recent || !c.is_recent)
         .collect();
 
-    let total_bytes: u64 = to_delete.iter().map(|c| c.artifact.size_bytes).sum();
+    let total_bytes: u64 = candidates.iter().map(|c| c.artifact.size_bytes).sum();
 
     if total_bytes == 0 {
         println!(
@@ -78,10 +92,33 @@ pub async fn run_purge(
         return Ok(());
     }
 
-    if !force {
+    let to_delete: Vec<&PurgeCandidate> = if force {
+        candidates
+    } else if io::stdout().is_terminal() {
+        let labels: Vec<String> = candidates
+            .iter()
+            .map(|c| format!("{} — {} ({})", c.project_name, c.artifact.name, format_size(c.artifact.size_bytes)))
+            .collect();
+        let defaults = vec![true; candidates.len()];
+        println!();
+        let chosen = MultiSelect::new()
+            .with_prompt("Select items to delete (space to toggle, enter to confirm)")
+            .items(&labels)
+            .defaults(&defaults)
+            .interact_opt()?;
+        match chosen {
+            Some(indices) if !indices.is_empty() => {
+                indices.into_iter().map(|i| candidates[i]).collect()
+            }
+            _ => {
+                println!("{}", "Aborted.".yellow());
+                return Ok(());
+            }
+        }
+    } else {
         print!(
             "\n{} {}",
-            format!("Delete {} item(s), freeing {}?", to_delete.len(), format_size(total_bytes)).bold(),
+            format!("Delete {} item(s), freeing {}?", candidates.len(), format_size(total_bytes)).bold(),
             "[y/N] ".bold()
         );
         io::stdout().flush()?;
@@ -91,7 +128,8 @@ pub async fn run_purge(
             println!("{}", "Aborted.".yellow());
             return Ok(());
         }
-    }
+        candidates
+    };
 
     let mut freed: u64 = 0;
     for candidate in &to_delete {

@@ -1,5 +1,7 @@
 pub mod clean;
+pub mod menu;
 pub mod purge;
+pub mod uninstall;
 pub mod update;
 
 use clap::{Parser, Subcommand};
@@ -60,5 +62,22 @@ pub enum Command {
         /// Show configured search paths and exit
         #[arg(long)]
         paths: bool,
+    },
+    /// Uninstall an application and its leftover files
+    Uninstall {
+        /// Name of the application to uninstall
+        name: Option<String>,
+
+        /// List installed applications and exit
+        #[arg(long)]
+        list: bool,
+
+        /// Show what would be removed without deleting
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Skip confirmation prompt
+        #[arg(long, short)]
+        force: bool,
     },
 }

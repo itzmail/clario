@@ -4,7 +4,8 @@ use crate::utils::size::{format_size, parse_size};
 use crate::utils::spinner::spin;
 use anyhow::Result;
 use colored::Colorize;
-use std::io::{self, Write};
+use dialoguer::MultiSelect;
+use std::io::{self, IsTerminal, Write};
 
 /// Recently modified projects are excluded from `clean`'s project-artifact scan by
 /// default, matching `purge`'s safety guard (someone actively working in a project
@@ -51,10 +52,22 @@ pub async fn run_clean(
     let (file_items, docker_info) = gather_items(&category);
 
     // Filter by min_size and exclude SystemCritical
+    #[cfg(target_os = "macos")]
+    let whitelist = crate::core::protection::load_whitelist();
+
     let filtered: Vec<FileInfo> = file_items
         .into_iter()
         .filter(|f| f.safety != SafetyLevel::SystemCritical)
         .filter(|f| f.size_bytes >= min_bytes)
+        .filter(|f| {
+            #[cfg(target_os = "macos")]
+            {
+                use crate::core::protection;
+                return protection::is_safe_to_delete(&f.path) && !protection::is_path_whitelisted(&f.path, &whitelist);
+            }
+            #[cfg(not(target_os = "macos"))]
+            true
+        })
         .collect();
 
     // Display summary table
@@ -74,8 +87,31 @@ pub async fn run_clean(
         return Ok(());
     }
 
-    // Confirm
-    if !force {
+    // Confirm / select
+    let to_delete: Vec<&FileInfo> = if force {
+        filtered.iter().collect()
+    } else if io::stdout().is_terminal() {
+        let labels: Vec<String> = filtered
+            .iter()
+            .map(|f| format!("{} ({})", f.name, format_size(f.size_bytes)))
+            .collect();
+        let defaults = vec![true; filtered.len()];
+        println!();
+        let chosen = MultiSelect::new()
+            .with_prompt("Select items to delete (space to toggle, enter to confirm)")
+            .items(&labels)
+            .defaults(&defaults)
+            .interact_opt()?;
+        match chosen {
+            Some(indices) if !indices.is_empty() => {
+                indices.into_iter().map(|i| &filtered[i]).collect()
+            }
+            _ => {
+                println!("{}", "Aborted.".yellow());
+                return Ok(());
+            }
+        }
+    } else {
         print!("\n{}", "Proceed with cleanup? [y/N] ".bold());
         io::stdout().flush()?;
         let mut input = String::new();
@@ -84,11 +120,12 @@ pub async fn run_clean(
             println!("{}", "Aborted.".yellow());
             return Ok(());
         }
-    }
+        filtered.iter().collect()
+    };
 
     // Delete files
     let mut freed: u64 = 0;
-    for item in &filtered {
+    for item in &to_delete {
         let path = item.path.clone();
         let is_trash_item = item.category == FileCategory::Trash;
         let is_dir = item.is_dir;
@@ -212,7 +249,7 @@ fn gather_items(
             items.extend(scan_step("App caches", dev_scanner::scan_cache));
         }
         Some(CleanCategory::Trash) => {
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
             items.extend(scan_step("Trash", dev_scanner::scan_trash));
         }
         None => {
@@ -226,7 +263,7 @@ fn gather_items(
                 scan_project_artifacts(&["target", "node_modules", ".venv", "venv", "__pycache__", ".gradle"])
             }));
             items.extend(scan_step("App caches", dev_scanner::scan_cache));
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
             items.extend(scan_step("Trash", dev_scanner::scan_trash));
 
             docker = spin("Docker", dev_scanner::scan_docker);

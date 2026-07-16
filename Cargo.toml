@@ -3,7 +3,7 @@ name = "clario"
 version = "0.1.5"
 edition = "2021"
 authors = ["Ismail Nur Alam <ismailnuralam@gmail.com>"]
-description = "System cleaning utility with TUI interface"
+description = "Fast CLI for cleaning dev caches and build artifacts"
 license = "MIT"
 
 [dependencies]
@@ -29,6 +29,7 @@ flate2 = "1.0"
 tar = "0.4"
 clap = { version = "4", features = ["derive"] }
 colored = "2"
+dialoguer = "0.11"
 
 [dev-dependencies]
 tokio-test = "0.4.5"

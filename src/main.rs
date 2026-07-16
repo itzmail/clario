@@ -9,6 +9,10 @@ use cli::{Cli, Command};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    if std::env::args().len() == 1 && std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        return cli::menu::run_main_menu().await;
+    }
+
     let cli = Cli::parse();
 
     match cli.command {
@@ -26,5 +30,8 @@ async fn main() -> Result<()> {
             include_recent,
             paths,
         } => cli::purge::run_purge(min_size, force, dry_run, include_recent, paths).await,
+        Command::Uninstall { name, list, dry_run, force } => {
+            cli::uninstall::run_uninstall(name, list, dry_run, force).await
+        }
     }
 }

@@ -194,9 +194,10 @@ pub fn scan_cache() -> Vec<FileInfo> {
 }
 
 /// Scan the user's Trash (already-deleted files awaiting permanent removal).
-/// Each direct child of `Trash/files` is its own item — emptying the Trash means
-/// permanently deleting these paths directly, NOT re-trashing the Trash folder itself.
-#[cfg(target_os = "linux")]
+/// Each direct child of the Trash directory is its own item — emptying the Trash
+/// means permanently deleting these paths directly, NOT re-trashing the Trash
+/// folder itself. Linux: `~/.local/share/Trash/files`. macOS: `~/.Trash`.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub fn scan_trash() -> Vec<FileInfo> {
     let Some(paths) = Paths::new() else { return vec![] };
     if !paths.trash_files.exists() {

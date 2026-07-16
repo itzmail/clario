@@ -33,6 +33,8 @@ pub struct Paths {
     pub user_logs: PathBuf,
     #[cfg(target_os = "macos")]
     pub system_caches: PathBuf,
+    #[cfg(target_os = "macos")]
+    pub trash_files: PathBuf,
 
     // System (Linux)
     #[cfg(target_os = "linux")]
@@ -82,6 +84,8 @@ impl Paths {
             user_logs: home.join("Library/Logs"),
             #[cfg(target_os = "macos")]
             system_caches: PathBuf::from("/Library/Caches"),
+            #[cfg(target_os = "macos")]
+            trash_files: home.join(".Trash"),
 
             #[cfg(target_os = "linux")]
             user_cache: home.join(".cache"),
