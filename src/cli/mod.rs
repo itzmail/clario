@@ -1,4 +1,5 @@
 pub mod clean;
+pub mod purge;
 pub mod update;
 
 use clap::{Parser, Subcommand};
@@ -11,7 +12,7 @@ use clap::{Parser, Subcommand};
 )]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Option<Command>,
+    pub command: Command,
 }
 
 #[derive(Subcommand)]
@@ -37,5 +38,27 @@ pub enum Command {
         /// Show what would be cleaned without deleting
         #[arg(long, global = true)]
         dry_run: bool,
+    },
+    /// Clean build artifacts (node_modules, target, dist, etc.) across projects
+    Purge {
+        /// Only show items larger than this threshold (e.g., 100MB, 1GB)
+        #[arg(long)]
+        min_size: Option<String>,
+
+        /// Skip confirmation prompt
+        #[arg(long, short)]
+        force: bool,
+
+        /// Show what would be purged without deleting
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Also purge artifacts belonging to recently modified projects
+        #[arg(long)]
+        include_recent: bool,
+
+        /// Show configured search paths and exit
+        #[arg(long)]
+        paths: bool,
     },
 }

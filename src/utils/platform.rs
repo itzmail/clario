@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 /// Mendapatkan daftar target direktori yang wajib di-scan oleh Clario.
 /// Implementasi berbeda-beda tergantung OS (macOS / Linux / Windows).
+#[allow(dead_code)] // Reserved: dipakai oleh subcommand `clario analyze`
 pub fn get_scan_targets() -> Vec<PathBuf> {
     let mut targets = Vec::new();
 

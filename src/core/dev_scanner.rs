@@ -1,18 +1,7 @@
 use crate::models::file_info::{FileCategory, FileInfo, SafetyLevel};
 use crate::utils::paths::Paths;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use walkdir::WalkDir;
-
-/// Returns true if the current working directory contains any of the given marker files.
-fn cwd_has_marker(markers: &[&str]) -> bool {
-    let Ok(cwd) = std::env::current_dir() else { return false };
-    markers.iter().any(|m| cwd.join(m).exists())
-}
-
-/// Returns the current working directory, or None if unavailable.
-fn cwd() -> Option<PathBuf> {
-    std::env::current_dir().ok()
-}
 
 /// Aggregated info about Docker disk usage (from `docker system df`)
 pub struct DockerInfo {
@@ -28,7 +17,8 @@ impl DockerInfo {
     }
 }
 
-/// Scan Cargo cache and project target/ directories.
+/// Scan the global Cargo registry cache (not project target/ dirs — those are
+/// covered globally across all projects by `purge_scanner`).
 pub fn scan_cargo() -> Vec<FileInfo> {
     let mut results = Vec::new();
     let Some(paths) = Paths::new() else { return results };
@@ -41,21 +31,11 @@ pub fn scan_cargo() -> Vec<FileInfo> {
         }
     }
 
-    if cwd_has_marker(&["Cargo.toml"]) {
-        if let Some(cwd) = cwd() {
-            let target = cwd.join("target");
-            if target.exists() {
-                if let Some(info) = dir_info(&target, FileCategory::CargoBuild, SafetyLevel::SafeToDelete) {
-                    results.push(info);
-                }
-            }
-        }
-    }
-
     results
 }
 
-/// Scan Node.js caches and project node_modules/ directories.
+/// Scan the global npm/pnpm cache (not project node_modules/ — those are
+/// covered globally across all projects by `purge_scanner`).
 pub fn scan_node() -> Vec<FileInfo> {
     let mut results = Vec::new();
     let Some(paths) = Paths::new() else { return results };
@@ -70,17 +50,6 @@ pub fn scan_node() -> Vec<FileInfo> {
         if pnpm_path.exists() {
             if let Some(info) = dir_info(pnpm_path, FileCategory::NodeCache, SafetyLevel::SafeToDelete) {
                 results.push(info);
-            }
-        }
-    }
-
-    if cwd_has_marker(&["package.json"]) {
-        if let Some(cwd) = cwd() {
-            let node_modules = cwd.join("node_modules");
-            if node_modules.exists() {
-                if let Some(info) = dir_info(&node_modules, FileCategory::NodeModules, SafetyLevel::SafeToDelete) {
-                    results.push(info);
-                }
             }
         }
     }
@@ -148,7 +117,8 @@ pub fn scan_go() -> Vec<FileInfo> {
     results
 }
 
-/// Scan Python pip cache and project __pycache__ / venv directories.
+/// Scan the global Python pip cache (not project __pycache__/venv — those are
+/// covered globally across all projects by `purge_scanner`).
 pub fn scan_python() -> Vec<FileInfo> {
     let mut results = Vec::new();
     let Some(paths) = Paths::new() else { return results };
@@ -161,24 +131,11 @@ pub fn scan_python() -> Vec<FileInfo> {
         }
     }
 
-    if cwd_has_marker(&["requirements.txt", "pyproject.toml", "setup.py", "setup.cfg"]) {
-        if let Some(cwd) = cwd() {
-            find_named_dirs(&cwd.clone().into(), "__pycache__", 5, FileCategory::PythonCache, SafetyLevel::SafeToDelete, &mut results);
-            for venv_name in &[".venv", "venv", "env"] {
-                let venv_path = cwd.join(venv_name);
-                if venv_path.exists() {
-                    if let Some(info) = dir_info(&venv_path, FileCategory::PythonVenv, SafetyLevel::ProceedWithCaution) {
-                        results.push(info);
-                    }
-                }
-            }
-        }
-    }
-
     results
 }
 
-/// Scan Java Gradle and Maven caches.
+/// Scan the global Gradle and Maven caches (not project-local .gradle — that's
+/// covered globally across all projects by `purge_scanner`).
 pub fn scan_java() -> Vec<FileInfo> {
     let mut results = Vec::new();
     let Some(paths) = Paths::new() else { return results };
@@ -192,17 +149,6 @@ pub fn scan_java() -> Vec<FileInfo> {
     if paths.maven_repo.exists() {
         if let Some(info) = dir_info(&paths.maven_repo, FileCategory::JavaMaven, SafetyLevel::SafeToDelete) {
             results.push(info);
-        }
-    }
-
-    if cwd_has_marker(&["build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts"]) {
-        if let Some(cwd) = cwd() {
-            let local_gradle = cwd.join(".gradle");
-            if local_gradle.exists() {
-                if let Some(info) = dir_info(&local_gradle, FileCategory::JavaGradle, SafetyLevel::SafeToDelete) {
-                    results.push(info);
-                }
-            }
         }
     }
 
@@ -223,15 +169,53 @@ pub fn scan_ruby() -> Vec<FileInfo> {
     results
 }
 
-/// Scan system cache directories.
+/// Scan system cache directories, broken down per app/subfolder (e.g. `~/.cache/google-chrome`,
+/// `~/.cache/spotify`) instead of one lump sum, so the user can see which app is the biggest offender.
 pub fn scan_cache() -> Vec<FileInfo> {
     let Some(paths) = Paths::new() else { return vec![] };
 
-    paths
-        .system_cache_dirs()
-        .into_iter()
-        .filter(|p| p.exists())
-        .filter_map(|p| dir_info(p, FileCategory::Cache, SafetyLevel::SafeToDelete))
+    let mut results = Vec::new();
+    for base in paths.system_cache_dirs() {
+        if !base.exists() {
+            continue;
+        }
+        let Ok(entries) = std::fs::read_dir(base) else { continue };
+        for entry in entries.filter_map(Result::ok) {
+            let path = entry.path();
+            if !path.is_dir() {
+                continue;
+            }
+            if let Some(info) = dir_info(&path, FileCategory::AppCache, SafetyLevel::SafeToDelete) {
+                results.push(info);
+            }
+        }
+    }
+    results
+}
+
+/// Scan the user's Trash (already-deleted files awaiting permanent removal).
+/// Each direct child of `Trash/files` is its own item — emptying the Trash means
+/// permanently deleting these paths directly, NOT re-trashing the Trash folder itself.
+#[cfg(target_os = "linux")]
+pub fn scan_trash() -> Vec<FileInfo> {
+    let Some(paths) = Paths::new() else { return vec![] };
+    if !paths.trash_files.exists() {
+        return vec![];
+    }
+    let Ok(entries) = std::fs::read_dir(&paths.trash_files) else { return vec![] };
+
+    entries
+        .filter_map(Result::ok)
+        .filter_map(|entry| {
+            let path = entry.path();
+            let is_dir = path.is_dir();
+            let size = if is_dir { dir_size(&path) } else { entry.metadata().ok()?.len() };
+            let name = entry.file_name().to_string_lossy().to_string();
+            let mut info = FileInfo::new(name, path, size, is_dir);
+            info.category = FileCategory::Trash;
+            info.safety = SafetyLevel::SafeToDelete;
+            Some(info)
+        })
         .collect()
 }
 
@@ -256,34 +240,6 @@ fn dir_size(path: &Path) -> u64 {
         .filter_map(|e| e.metadata().ok())
         .map(|m| m.len())
         .sum()
-}
-
-/// Walk `root` up to `max_depth` levels and collect directories named `target_name`.
-fn find_named_dirs(
-    root: &PathBuf,
-    target_name: &str,
-    max_depth: usize,
-    category: FileCategory,
-    safety: SafetyLevel,
-    results: &mut Vec<FileInfo>,
-) {
-    let walker = WalkDir::new(root)
-        .max_depth(max_depth)
-        .into_iter()
-        .filter_entry(|e| {
-            e.depth() == 0 || e.file_name().to_string_lossy() != target_name
-        });
-
-    for entry in walker.filter_map(Result::ok) {
-        if entry.depth() == 0 {
-            continue;
-        }
-        if entry.file_name().to_string_lossy() == target_name && entry.path().is_dir() {
-            if let Some(info) = dir_info(entry.path(), category.clone(), safety.clone()) {
-                results.push(info);
-            }
-        }
-    }
 }
 
 /// Parse Docker's human-readable size strings like "1.2GB", "345MB".

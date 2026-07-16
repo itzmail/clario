@@ -1,13 +1,9 @@
-mod app;
 mod cli;
 mod core;
-mod handlers;
 mod models;
-mod ui;
 mod utils;
 
 use anyhow::Result;
-use app::App;
 use clap::Parser;
 use cli::{Cli, Command};
 
@@ -16,20 +12,19 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        Some(Command::Update { version }) => cli::update::run_update(version).await,
-        Some(Command::Clean {
+        Command::Update { version } => cli::update::run_update(version).await,
+        Command::Clean {
             category,
             min_size,
             force,
             dry_run,
-        }) => cli::clean::run_clean(category, min_size, force, dry_run).await,
-        None => {
-            let mut app = App::new();
-            if let Err(err) = app.run().await {
-                eprintln!("Application error: {:?}", err);
-                return Err(err);
-            }
-            Ok(())
-        }
+        } => cli::clean::run_clean(category, min_size, force, dry_run).await,
+        Command::Purge {
+            min_size,
+            force,
+            dry_run,
+            include_recent,
+            paths,
+        } => cli::purge::run_purge(min_size, force, dry_run, include_recent, paths).await,
     }
 }

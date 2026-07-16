@@ -38,7 +38,10 @@ pub struct Paths {
     #[cfg(target_os = "linux")]
     pub user_cache: PathBuf,
     #[cfg(target_os = "linux")]
+    #[allow(dead_code)] // Reserved: system log cleanup ditunda, butuh privilege + review keamanan terpisah
     pub system_logs: PathBuf,
+    #[cfg(target_os = "linux")]
+    pub trash_files: PathBuf,
 }
 
 impl Paths {
@@ -84,6 +87,8 @@ impl Paths {
             user_cache: home.join(".cache"),
             #[cfg(target_os = "linux")]
             system_logs: PathBuf::from("/var/log"),
+            #[cfg(target_os = "linux")]
+            trash_files: home.join(".local/share/Trash/files"),
         })
     }
 

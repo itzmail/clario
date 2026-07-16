@@ -1,9 +1,15 @@
-use crate::core::dev_scanner;
+use crate::core::{dev_scanner, purge_scanner};
 use crate::models::file_info::{FileCategory, FileInfo, SafetyLevel};
 use crate::utils::size::{format_size, parse_size};
+use crate::utils::spinner::spin;
 use anyhow::Result;
 use colored::Colorize;
 use std::io::{self, Write};
+
+/// Recently modified projects are excluded from `clean`'s project-artifact scan by
+/// default, matching `purge`'s safety guard (someone actively working in a project
+/// shouldn't have node_modules/target vanish mid-session).
+const RECENT_THRESHOLD_DAYS: u32 = 7;
 
 #[derive(Debug, Clone, clap::Subcommand)]
 pub enum CleanCategory {
@@ -21,8 +27,10 @@ pub enum CleanCategory {
     Ruby,
     /// Clean Docker unused images, containers, volumes, and build cache
     Docker,
-    /// Clean system cache directories
+    /// Clean per-app cache directories (browsers, chat apps, editors, etc.)
     Cache,
+    /// Empty the Trash
+    Trash,
 }
 
 pub async fn run_clean(
@@ -37,9 +45,9 @@ pub async fn run_clean(
     };
 
     println!("{}", "Clario Clean".bold());
-    println!("{}", "Scanning...".dimmed());
+    println!();
 
-    // Gather items based on category
+    // Gather items based on category, printing progress as each scanner finishes
     let (file_items, docker_info) = gather_items(&category);
 
     // Filter by min_size and exclude SystemCritical
@@ -81,9 +89,23 @@ pub async fn run_clean(
     // Delete files
     let mut freed: u64 = 0;
     for item in &filtered {
-        print!("  Removing {}... ", item.path.display());
-        io::stdout().flush()?;
-        match trash::delete(&item.path) {
+        let path = item.path.clone();
+        let is_trash_item = item.category == FileCategory::Trash;
+        let is_dir = item.is_dir;
+        // Trash items are already in the Trash — delete them permanently instead of
+        // re-trashing (trash::delete on a Trash entry would just nest it deeper).
+        let result = spin(&format!("Removing {}", path.display()), move || {
+            if is_trash_item {
+                if is_dir {
+                    std::fs::remove_dir_all(&path)
+                } else {
+                    std::fs::remove_file(&path)
+                }
+            } else {
+                trash::delete(&path).map_err(|e| io::Error::other(e.to_string()))
+            }
+        });
+        match result {
             Ok(_) => {
                 freed += item.size_bytes;
                 println!("{}", "done".green());
@@ -94,11 +116,9 @@ pub async fn run_clean(
 
     // Docker cleanup
     if docker_info.is_some() {
-        print!("  Running docker system prune... ");
-        io::stdout().flush()?;
-        let status = std::process::Command::new("docker")
-            .args(["system", "prune", "-f"])
-            .status();
+        let status = spin("Running docker system prune", || {
+            std::process::Command::new("docker").args(["system", "prune", "-f"]).status()
+        });
         match status {
             Ok(s) if s.success() => {
                 freed += docker_info.map(|d| d.total()).unwrap_or(0);
@@ -112,6 +132,41 @@ pub async fn run_clean(
     Ok(())
 }
 
+/// Run one scanner behind a spinner, print the result on the same line once it finishes.
+fn scan_step(label: &str, scan: impl FnOnce() -> Vec<FileInfo> + Send + 'static) -> Vec<FileInfo> {
+    let items = spin(label, scan);
+    let size: u64 = items.iter().map(|f| f.size_bytes).sum();
+    if items.is_empty() {
+        println!("{}", "nothing found".dimmed());
+    } else {
+        println!("{}", format_size(size).cyan());
+    }
+    items
+}
+
+/// Project build artifacts (node_modules, target, .venv, etc.) live across every project
+/// under the configured purge search paths — same source `purge` uses, filtered down to
+/// the artifact names relevant to the requested language category.
+fn scan_project_artifacts(target_names: &[&str]) -> Vec<FileInfo> {
+    let search_paths = purge_scanner::load_search_paths();
+    purge_scanner::scan(&search_paths, RECENT_THRESHOLD_DAYS)
+        .into_iter()
+        .filter(|c| !c.is_recent && target_names.contains(&c.artifact.name.as_str()))
+        .map(|c| {
+            let mut info = c.artifact;
+            info.category = match info.name.as_str() {
+                "target" => FileCategory::CargoBuild,
+                "node_modules" => FileCategory::NodeModules,
+                ".venv" | "venv" => FileCategory::PythonVenv,
+                "__pycache__" => FileCategory::PythonCache,
+                ".gradle" => FileCategory::JavaGradle,
+                _ => FileCategory::Other,
+            };
+            info
+        })
+        .collect()
+}
+
 fn gather_items(
     category: &Option<CleanCategory>,
 ) -> (Vec<FileInfo>, Option<dev_scanner::DockerInfo>) {
@@ -120,42 +175,65 @@ fn gather_items(
 
     match category {
         Some(CleanCategory::Cargo) => {
-            items.extend(dev_scanner::scan_cargo());
+            items.extend(scan_step("Cargo cache", dev_scanner::scan_cargo));
+            items.extend(scan_step("Cargo target/ (all projects)", || scan_project_artifacts(&["target"])));
         }
         Some(CleanCategory::Node) => {
-            items.extend(dev_scanner::scan_node());
+            items.extend(scan_step("Node cache", dev_scanner::scan_node));
+            items.extend(scan_step("node_modules (all projects)", || scan_project_artifacts(&["node_modules"])));
         }
         Some(CleanCategory::Docker) => {
-            docker = dev_scanner::scan_docker();
-            if docker.is_none() {
-                eprintln!("{}", "Docker daemon not available, skipping.".yellow());
+            docker = spin("Docker", dev_scanner::scan_docker);
+            match &docker {
+                Some(d) => println!("{}", format_size(d.total()).cyan()),
+                None => {
+                    println!("{}", "unavailable".dimmed());
+                    eprintln!("{}", "Docker daemon not available, skipping.".yellow());
+                }
             }
         }
         Some(CleanCategory::Go) => {
-            items.extend(dev_scanner::scan_go());
+            items.extend(scan_step("Go cache", dev_scanner::scan_go));
         }
         Some(CleanCategory::Python) => {
-            items.extend(dev_scanner::scan_python());
+            items.extend(scan_step("Python cache", dev_scanner::scan_python));
+            items.extend(scan_step("Python venv/__pycache__ (all projects)", || {
+                scan_project_artifacts(&[".venv", "venv", "__pycache__"])
+            }));
         }
         Some(CleanCategory::Java) => {
-            items.extend(dev_scanner::scan_java());
+            items.extend(scan_step("Gradle/Maven cache", dev_scanner::scan_java));
+            items.extend(scan_step(".gradle (all projects)", || scan_project_artifacts(&[".gradle"])));
         }
         Some(CleanCategory::Ruby) => {
-            items.extend(dev_scanner::scan_ruby());
+            items.extend(scan_step("Ruby gems", dev_scanner::scan_ruby));
         }
         Some(CleanCategory::Cache) => {
-            items.extend(dev_scanner::scan_cache());
+            items.extend(scan_step("App caches", dev_scanner::scan_cache));
+        }
+        Some(CleanCategory::Trash) => {
+            #[cfg(target_os = "linux")]
+            items.extend(scan_step("Trash", dev_scanner::scan_trash));
         }
         None => {
-            // Scan all categories
-            items.extend(dev_scanner::scan_cargo());
-            items.extend(dev_scanner::scan_node());
-            items.extend(dev_scanner::scan_go());
-            items.extend(dev_scanner::scan_python());
-            items.extend(dev_scanner::scan_java());
-            items.extend(dev_scanner::scan_ruby());
-            items.extend(dev_scanner::scan_cache());
-            docker = dev_scanner::scan_docker();
+            items.extend(scan_step("Cargo cache", dev_scanner::scan_cargo));
+            items.extend(scan_step("Node cache", dev_scanner::scan_node));
+            items.extend(scan_step("Go cache", dev_scanner::scan_go));
+            items.extend(scan_step("Python cache", dev_scanner::scan_python));
+            items.extend(scan_step("Gradle/Maven cache", dev_scanner::scan_java));
+            items.extend(scan_step("Ruby gems", dev_scanner::scan_ruby));
+            items.extend(scan_step("Project artifacts (all projects)", || {
+                scan_project_artifacts(&["target", "node_modules", ".venv", "venv", "__pycache__", ".gradle"])
+            }));
+            items.extend(scan_step("App caches", dev_scanner::scan_cache));
+            #[cfg(target_os = "linux")]
+            items.extend(scan_step("Trash", dev_scanner::scan_trash));
+
+            docker = spin("Docker", dev_scanner::scan_docker);
+            match &docker {
+                Some(d) if d.total() > 0 => println!("{}", format_size(d.total()).cyan()),
+                _ => println!("{}", "nothing found".dimmed()),
+            }
         }
     }
 
@@ -185,7 +263,6 @@ fn print_summary(items: &[FileInfo], docker: Option<&dev_scanner::DockerInfo>) {
         ("Gradle cache", FileCategory::JavaGradle),
         ("Maven repository", FileCategory::JavaMaven),
         ("Ruby gems", FileCategory::RubyGems),
-        ("System cache", FileCategory::Cache),
         ("Logs", FileCategory::Log),
     ];
 
@@ -207,6 +284,38 @@ fn print_summary(items: &[FileInfo], docker: Option<&dev_scanner::DockerInfo>) {
             count,
             format_size(size).cyan()
         );
+    }
+
+    // App caches are shown per-app (not summed into one line) so the user can
+    // see which app is the biggest offender, e.g. "google-chrome  2.1 GB".
+    let mut app_caches: Vec<&FileInfo> = items
+        .iter()
+        .filter(|f| f.category == FileCategory::AppCache)
+        .collect();
+    if !app_caches.is_empty() {
+        app_caches.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+        for item in &app_caches {
+            total_items += 1;
+            total_bytes += item.size_bytes;
+            println!(
+                "{:<col_w$} {:>8}  {}",
+                format!("App cache: {}", item.name),
+                "—",
+                format_size(item.size_bytes).cyan()
+            );
+        }
+    }
+
+    let trash_items: Vec<&FileInfo> = items
+        .iter()
+        .filter(|f| f.category == FileCategory::Trash)
+        .collect();
+    if !trash_items.is_empty() {
+        let count = trash_items.len();
+        let size: u64 = trash_items.iter().map(|f| f.size_bytes).sum();
+        total_items += count;
+        total_bytes += size;
+        println!("{:<col_w$} {:>8}  {}", "Trash", count, format_size(size).cyan());
     }
 
     if let Some(d) = docker {

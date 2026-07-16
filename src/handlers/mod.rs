@@ -1,6 +1,0 @@
-pub mod app_uninstaller;
-pub mod dashboard;
-pub mod file_manager;
-pub mod process_monitor;
-pub mod settings;
-pub mod update;
