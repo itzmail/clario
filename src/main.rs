@@ -1,6 +1,7 @@
 mod cli;
 mod core;
 mod models;
+mod tui;
 mod utils;
 
 use anyhow::Result;
@@ -33,5 +34,6 @@ async fn main() -> Result<()> {
         Command::Uninstall { name, list, dry_run, force } => {
             cli::uninstall::run_uninstall(name, list, dry_run, force).await
         }
+        Command::Analyze { path } => cli::analyze::run_analyze(path).await,
     }
 }

@@ -20,6 +20,12 @@ entirely, Linux-first** (Mole is macOS-only bash; Clario's advantage is being
 native Rust — no bash + coreutils dependency, faster scanning, no shell
 quoting bugs). macOS support may return later but is not the current focus.
 
+**Update**: macOS support returned. The user's dev machine is macOS, so
+`uninstall` (session "implement-mole", see below), then `clean`/`purge` (a
+later session) were both extended to run on macOS too. Linux remains the
+primary target; macOS is now a fully supported second platform for these
+three subcommands specifically — not a blanket "macOS is back" decision.
+
 ## What was removed (and why it's gone for good)
 
 All ratatui-era code was deleted, not refactored:
@@ -75,8 +81,78 @@ again — it was deliberately removed, not an oversight.
 | `java` | `dev_scanner::scan_java` (global Gradle/Maven cache) + `purge_scanner` filtered to `.gradle` | global |
 | `ruby` | `dev_scanner::scan_ruby` (global `~/.gem`) | global |
 | `docker` | `dev_scanner::scan_docker` (`docker system df`) | n/a (daemon-wide) |
-| `cache` | `dev_scanner::scan_cache` — **per-subfolder breakdown** of `~/.cache` (generic XDG scan, not a hardcoded per-app list like Mole's `app_caches.sh`) | global |
-| `trash` | `dev_scanner::scan_trash` — `~/.local/share/Trash/files`, one `FileInfo` per direct child | global, Linux-only (`#[cfg(target_os = "linux")]`) |
+| `cache` | `dev_scanner::scan_cache` — **per-subfolder breakdown** of `~/.cache` (Linux) or `~/Library/Caches` + `/Library/Caches` (macOS), generic scan not a hardcoded per-app list like Mole's `app_caches.sh` | global |
+| `trash` | `dev_scanner::scan_trash` — `~/.local/share/Trash/files` (Linux) or `~/.Trash` (macOS), one `FileInfo` per direct child | global, Linux + macOS (`#[cfg(any(target_os = "linux", target_os = "macos"))]`) |
+
+All other `dev_scanner` scanners (`scan_cargo`, `scan_node`, `scan_go`,
+`scan_python`, `scan_java`, `scan_ruby`) were already cross-platform before
+this — they read from `Paths` (`src/utils/paths.rs`), which already had a
+macOS branch for every field. Only `scan_trash` needed a genuinely new
+per-OS implementation (different Trash location/layout). `purge_scanner.rs`
+needed **no changes at all** to work on macOS — it has zero `#[cfg]` gates
+and its default search paths (`~/dev`, `~/Projects`, etc.) are already
+OS-agnostic. The only macOS-specific default Mole has that Clario
+deliberately does not (`~/Library/CloudStorage`) is still skipped — that
+was an explicit prior decision, not an oversight, and stays that way unless
+asked again.
+
+### macOS path/app protection (`src/core/protection.rs`)
+
+Ported from Mole's `lib/core/app_protection.sh` +
+`lib/core/app_protection_data.sh` + the validation half of
+`lib/core/file_ops.sh`. macOS-only (`#[cfg(target_os = "macos")]`) since the
+data (bundle IDs, `/System` paths) is macOS-specific — Linux `clean`/`purge`
+has no equivalent and doesn't need one (its scanners never touch
+arbitrary app-bundle paths).
+
+What's ported (verbatim data, subset of logic):
+- `SYSTEM_CRITICAL_BUNDLES` (~110 patterns) and `DATA_PROTECTED_BUNDLES`
+  (~280 patterns, 30 categories: password managers, IDEs, AI tools, VPNs,
+  etc.) — copied 1:1 from `app_protection_data.sh`.
+- `ENDPOINT_SECURITY_BUNDLE_PREFIXES` (CrowdStrike, SentinelOne, etc.) —
+  EDR agent caches under `/private/var/folders/*` that look regenerable but
+  trip tamper detection if touched.
+- `should_protect_path()` — the clean/purge-relevant subset of Mole's
+  ~460-line function: system UI keyword matches, sandboxed container
+  bundle-ID extraction, endpoint-security check, critical preference files,
+  iCloud/Keychain/Mail/Contacts/Calendars, CoreAudio caches, and the full
+  bundle-pattern sweep against both the full path and the filename.
+- `is_critical_deletion_path()` (from `_mole_is_critical_deletion_path` in
+  `file_ops.sh`) — hardcoded critical roots (`/System`, `/Library`,
+  `/Users/<name>` itself, etc.), the last-resort backstop even if a category
+  scanner somehow produced a path this broad.
+- `is_safe_to_delete()` — combines the above three checks, mirrors Mole's
+  `validate_path_for_deletion()`.
+- Whitelist: `~/.config/clario/whitelist`, one pattern per line, `#`
+  comments, `~` expansion, `*` glob + parent/child containment — mirrors
+  `is_path_whitelisted()` (the glob-aware version used at actual delete
+  time, not the exact-match-only version used by Mole's `whitelist.sh` UI
+  management commands, since Clario has no whitelist-management subcommand
+  yet).
+
+**Explicitly NOT ported** (out of scope — this is a clean/purge filter, not
+an uninstall leftover finder):
+- `find_app_files()` and all uninstall-leftover heuristics (vendor-nested
+  matching, embedded bundle-ID scanning, sibling-guard, LaunchAgent name
+  matching). That logic belongs to `uninstall.rs`'s own leftover detection
+  (`app_scanner.rs`), which already has its own simpler heuristic and was
+  built in an earlier session.
+- Uninstall-mode branches inside `should_protect_path()` (the
+  `MOLE_UNINSTALL_MODE` conditionals that relax protection when the user
+  explicitly chose to remove an app).
+- Whitelist management commands (`clario whitelist add/remove/list`) — only
+  the read side (`load_whitelist()`) exists; there's no CLI surface to edit
+  the file yet, same as Mole's file being hand-edited before any UI existed.
+
+**Wiring**: `is_safe_to_delete()` + `is_path_whitelisted()` are applied in
+the **filtering stage** in both `clean.rs` and `purge.rs` — right after the
+`min_size`/`SystemCritical` filters, before the summary table is printed.
+This was a deliberate fix mid-session: an earlier version checked protection
+only in the delete loop, which meant `--dry-run` (which returns before the
+delete loop) showed protected items in its preview as if they'd be deleted,
+then silently skipped them on a real run. **Protection must be a filter on
+`filtered`, not a guard inside the delete loop** — if this code is touched
+again, keep that invariant so dry-run stays an honest preview.
 
 Deliberate choice on `cache`: Mole hardcodes ~40 named apps
 (`lib/clean/app_caches.sh` — Slack, Spotify, Xcode, etc). We chose a

@@ -1,3 +1,4 @@
+pub mod analyze;
 pub mod clean;
 pub mod menu;
 pub mod purge;
@@ -5,6 +6,7 @@ pub mod uninstall;
 pub mod update;
 
 use clap::{Parser, Subcommand};
+use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(
@@ -79,5 +81,10 @@ pub enum Command {
         /// Skip confirmation prompt
         #[arg(long, short)]
         force: bool,
+    },
+    /// Show a size breakdown of a directory (defaults to home)
+    Analyze {
+        /// Directory to analyze (defaults to home directory)
+        path: Option<PathBuf>,
     },
 }

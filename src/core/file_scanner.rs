@@ -1,5 +1,6 @@
 use crate::models::file_info::{FileCategory, FileInfo, SafetyLevel};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use walkdir::WalkDir;
 
 pub struct FileScanner;
@@ -7,6 +8,7 @@ pub struct FileScanner;
 impl FileScanner {
     /// Melakukan scan (baca) secara dasar terhadap daftar folder target.
     /// Mengembalikan list flat berisi setiap file di dalam target (bukan tree).
+    #[allow(dead_code)] // Reserved: general-purpose flat scanner, no current caller
     pub fn scan_targets(targets: &[PathBuf], safety_threshold_days: u32) -> Vec<FileInfo> {
         let mut results = Vec::new();
         let now = std::time::SystemTime::now();
@@ -30,6 +32,57 @@ impl FileScanner {
                 results.push(info);
             }
         }
+
+        results.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+        results
+    }
+
+    /// Scan satu direktori root, kembalikan satu `FileInfo` per entry langsung di
+    /// bawahnya (depth 1) dengan `size_bytes` = total ukuran rekursif entry itu
+    /// (kalau folder) — breakdown ala `du -d1`. Dipakai oleh TUI `clario analyze`.
+    ///
+    /// Tiap entry top-level di-scan di thread terpisah (folder besar seperti
+    /// `~/.cache` atau `~/Library` bisa berisi jutaan file dan mendominasi waktu
+    /// total kalau dijalankan sekuensial). Berhenti lebih awal kalau `cancel`
+    /// `true` di tengah scan (dipakai TUI analyze saat user pindah direktori
+    /// sebelum scan folder besar sebelumnya selesai). `on_entry` dipanggil tiap
+    /// entry selesai dengan (nama, ukuran, is_dir) — dipakai untuk progress live.
+    pub fn scan_depth1(
+        root: &Path,
+        cancel: &AtomicBool,
+        on_entry: impl Fn(&str, u64, bool) + Sync,
+    ) -> Vec<FileInfo> {
+        let Ok(entries) = std::fs::read_dir(root) else {
+            return Vec::new();
+        };
+
+        let entries: Vec<_> = entries.filter_map(Result::ok).collect();
+
+        let mut results: Vec<FileInfo> = std::thread::scope(|scope| {
+            let handles: Vec<_> = entries
+                .into_iter()
+                .map(|entry| {
+                    let on_entry = &on_entry;
+                    scope.spawn(move || {
+                        if cancel.load(Ordering::Relaxed) {
+                            return None;
+                        }
+                        let path = entry.path();
+                        let meta = entry.metadata().ok()?;
+                        let is_dir = meta.is_dir();
+                        let name = entry.file_name().to_string_lossy().to_string();
+                        let size = if is_dir { dir_size(&path, cancel) } else { meta.len() };
+                        if cancel.load(Ordering::Relaxed) {
+                            return None;
+                        }
+                        on_entry(&name, size, is_dir);
+                        Some(FileInfo::new(name, path, size, is_dir))
+                    })
+                })
+                .collect();
+
+            handles.into_iter().filter_map(|h| h.join().ok().flatten()).collect()
+        });
 
         results.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
         results
@@ -94,4 +147,19 @@ impl FileScanner {
             SafetyLevel::ProceedWithCaution
         }
     }
+}
+
+/// Total ukuran rekursif sebuah direktori. Entry yang tak bisa dibaca (permission
+/// denied, symlink putus, dll) dilewati, bukan menggagalkan seluruh scan. Berhenti
+/// (dan mengembalikan hitungan parsial) begitu `cancel` di-set — dicek per entry
+/// karena `WalkDir` sendiri tidak punya hook cancellation bawaan.
+fn dir_size(path: &Path, cancel: &AtomicBool) -> u64 {
+    WalkDir::new(path)
+        .into_iter()
+        .filter_map(Result::ok)
+        .take_while(|_| !cancel.load(Ordering::Relaxed))
+        .filter(|e| e.file_type().is_file())
+        .filter_map(|e| e.metadata().ok())
+        .map(|m| m.len())
+        .sum()
 }
