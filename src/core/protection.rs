@@ -1,19 +1,19 @@
-//! macOS path/app protection, ported from Mole's `lib/core/app_protection.sh`
-//! and `lib/core/file_ops.sh`. Prevents `clean`/`purge` from deleting critical
-//! system paths, system-critical or data-sensitive app bundles, endpoint
-//! security (EDR) agent caches, or user-whitelisted paths.
+//! Path/app protection preventing `clean`/`purge`/`analyze` from deleting
+//! critical system paths. The macOS section is ported from Mole's
+//! `lib/core/app_protection.sh` and `lib/core/file_ops.sh` (system-critical
+//! and data-sensitive app bundles, endpoint security agent caches). Linux gets
+//! a smaller root-path-only guard — no app-bundle concept there.
 //!
 //! Only the clean/purge-relevant subset is ported. Mole's uninstall-specific
 //! leftover-discovery heuristics (`find_app_files`, sibling-guard, vendor-nested
 //! matching) are out of scope here — that logic belongs to `uninstall.rs`, not
 //! this filter.
 
-#![cfg(target_os = "macos")]
-
 use std::path::Path;
 
 /// Critical macOS system apps/components, protected from uninstall/cleanup.
 /// Ported verbatim from Mole's `SYSTEM_CRITICAL_BUNDLES`.
+#[cfg(target_os = "macos")]
 const SYSTEM_CRITICAL_BUNDLES: &[&str] = &[
     // Core system applications (in /System/Applications/)
     "com.apple.finder",
@@ -121,6 +121,7 @@ const SYSTEM_CRITICAL_BUNDLES: &[&str] = &[
 /// Third-party apps with sensitive data (credentials, licenses, project state),
 /// protected from cache cleanup even though their cache dirs look regenerable.
 /// Ported verbatim from Mole's `DATA_PROTECTED_BUNDLES`.
+#[cfg(target_os = "macos")]
 const DATA_PROTECTED_BUNDLES: &[&str] = &[
     // Input Methods
     "com.tencent.inputmethod.QQInput",
@@ -510,6 +511,7 @@ const DATA_PROTECTED_BUNDLES: &[&str] = &[
 /// ordinary-looking `/private/var/folders/*` paths, but deleting anything inside
 /// trips sensor tamper detection (reported as malware by corporate security).
 /// Ported verbatim from Mole's `ENDPOINT_SECURITY_BUNDLE_PREFIXES`.
+#[cfg(target_os = "macos")]
 const ENDPOINT_SECURITY_BUNDLE_PREFIXES: &[&str] = &[
     "com.crowdstrike.",
     "com.sentinelone.",
@@ -550,91 +552,139 @@ fn glob_match_lower(pattern: &str, value: &str) -> bool {
     }
 }
 
+#[cfg(target_os = "macos")]
 fn matches_any(patterns: &[&str], token: &str) -> bool {
     patterns.iter().any(|p| glob_match(p, token))
 }
 
 /// Mirrors Mole's `should_protect_data()`: does this bundle ID (or app/file
 /// name) belong to a system-critical or data-sensitive app?
+/// macOS only — Linux has no app-bundle concept to check against.
+#[cfg(target_os = "macos")]
 pub fn should_protect_data(token: &str) -> bool {
     matches_any(SYSTEM_CRITICAL_BUNDLES, token) || matches_any(DATA_PROTECTED_BUNDLES, token)
 }
 
 /// Mirrors Mole's `is_endpoint_security_cache_path()`: EDR agent caches under
-/// `var/folders` look rebuildable but must never be touched.
+/// `var/folders` look rebuildable but must never be touched. macOS only —
+/// `/var/folders` doesn't exist as an EDR cache convention on Linux.
 pub fn is_endpoint_security_cache_path(path: &Path) -> bool {
-    let path_str = path.to_string_lossy();
-    let in_var_folders = path_str.starts_with("/private/var/folders/") || path_str.starts_with("/var/folders/");
-    if !in_var_folders {
-        return false;
+    #[cfg(target_os = "macos")]
+    {
+        let path_str = path.to_string_lossy();
+        let in_var_folders = path_str.starts_with("/private/var/folders/") || path_str.starts_with("/var/folders/");
+        if !in_var_folders {
+            return false;
+        }
+        ENDPOINT_SECURITY_BUNDLE_PREFIXES.iter().any(|prefix| path_str.contains(prefix))
     }
-    ENDPOINT_SECURITY_BUNDLE_PREFIXES.iter().any(|prefix| path_str.contains(prefix))
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = path;
+        false
+    }
 }
 
 /// Hardcoded critical system directories that must never be deleted, regardless
-/// of category. Ported from Mole's `_mole_is_critical_deletion_path()`.
+/// of category. macOS list ported from Mole's `_mole_is_critical_deletion_path()`.
+/// Linux list is a smaller root-path-only guard (no app-bundle equivalent).
 fn is_critical_deletion_path(path: &Path) -> bool {
     let s = path.to_string_lossy();
 
-    // Homebrew and user-installed software live here; individual entries stay
-    // deletable, but the roots themselves fall through to the checks below.
-    if s.starts_with("/usr/local/") || s.starts_with("/opt/homebrew/") {
+    #[cfg(target_os = "macos")]
+    {
+        // Homebrew and user-installed software live here; individual entries stay
+        // deletable, but the roots themselves fall through to the checks below.
+        if s.starts_with("/usr/local/") || s.starts_with("/opt/homebrew/") {
+            return false;
+        }
+
+        const EXACT_OR_PREFIX_ROOTS: &[&str] = &[
+            "/bin", "/sbin", "/usr", "/System", "/Library/Apple", "/Applications/Finder.app",
+            "/Applications/Safari.app", "/etc", "/private/etc", "/var/db", "/private/var/db",
+            "/var/audit", "/private/var/audit",
+        ];
+        for root in EXACT_OR_PREFIX_ROOTS {
+            if s == *root || s.starts_with(&format!("{root}/")) {
+                return true;
+            }
+        }
+
+        const EXACT_ROOTS: &[&str] = &[
+            "/",
+            "/Library",
+            "/Library/Application Support",
+            "/Library/Extensions",
+            "/Library/Keychains",
+            "/Applications",
+            "/Volumes",
+            "/opt",
+            "/opt/homebrew",
+            "/Users",
+            "/Users/Shared",
+            "/Users/Guest",
+            "/private",
+            "/var",
+            "/var/db",
+            "/var/root",
+            "/private/var",
+            "/private/var/root",
+        ];
+        if EXACT_ROOTS.contains(&s.as_ref()) {
+            return true;
+        }
+        if s.starts_with("/Library/Extensions/")
+            || s.starts_with("/Library/Keychains/")
+            || s.starts_with("/Users/Guest/")
+        {
+            return true;
+        }
+
+        // Reject a user home root (/Users/<name>) while keeping its children deletable.
+        if let Some(rest) = s.strip_prefix("/Users/") {
+            if !rest.is_empty() && !rest.contains('/') {
+                return true;
+            }
+        }
+
         return false;
     }
 
-    const EXACT_OR_PREFIX_ROOTS: &[&str] = &[
-        "/bin", "/sbin", "/usr", "/System", "/Library/Apple", "/Applications/Finder.app",
-        "/Applications/Safari.app", "/etc", "/private/etc", "/var/db", "/private/var/db",
-        "/var/audit", "/private/var/audit",
-    ];
-    for root in EXACT_OR_PREFIX_ROOTS {
-        if s == *root || s.starts_with(&format!("{root}/")) {
-            return true;
-        }
-    }
-
-    const EXACT_ROOTS: &[&str] = &[
-        "/",
-        "/Library",
-        "/Library/Application Support",
-        "/Library/Extensions",
-        "/Library/Keychains",
-        "/Applications",
-        "/Volumes",
-        "/opt",
-        "/opt/homebrew",
-        "/Users",
-        "/Users/Shared",
-        "/Users/Guest",
-        "/private",
-        "/var",
-        "/var/db",
-        "/var/root",
-        "/private/var",
-        "/private/var/root",
-    ];
-    if EXACT_ROOTS.contains(&s.as_ref()) {
-        return true;
-    }
-    if s.starts_with("/Library/Extensions/")
-        || s.starts_with("/Library/Keychains/")
-        || s.starts_with("/Users/Guest/")
+    #[cfg(target_os = "linux")]
     {
-        return true;
-    }
+        const EXACT_OR_PREFIX_ROOTS: &[&str] =
+            &["/bin", "/sbin", "/usr", "/etc", "/boot", "/proc", "/sys", "/dev", "/lib", "/lib64", "/root"];
+        for root in EXACT_OR_PREFIX_ROOTS {
+            if s == *root || s.starts_with(&format!("{root}/")) {
+                return true;
+            }
+        }
 
-    // Reject a user home root (/Users/<name>) while keeping its children deletable.
-    if let Some(rest) = s.strip_prefix("/Users/") {
-        if !rest.is_empty() && !rest.contains('/') {
+        const EXACT_ROOTS: &[&str] = &["/", "/var", "/opt", "/home", "/mnt", "/media"];
+        if EXACT_ROOTS.contains(&s.as_ref()) {
             return true;
         }
+
+        // Reject a user home root (/home/<name>) while keeping its children deletable.
+        if let Some(rest) = s.strip_prefix("/home/") {
+            if !rest.is_empty() && !rest.contains('/') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
-    false
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    {
+        let _ = s;
+        false
+    }
 }
 
 /// Extract the bundle ID from a sandboxed container path, e.g.
 /// `.../Library/Containers/<bundle-id>/...` or `.../Library/Group Containers/<bundle-id>/...`.
+#[cfg(target_os = "macos")]
 fn extract_container_bundle_id(path_str: &str) -> Option<&str> {
     for marker in ["/Library/Containers/", "/Library/Group Containers/"] {
         if let Some(idx) = path_str.find(marker) {
@@ -653,6 +703,14 @@ fn extract_container_bundle_id(path_str: &str) -> Option<&str> {
 /// Keychain/Mail/Contacts/Calendars, audio subsystem caches, and the full
 /// bundle-pattern sweep. Skipped: uninstall-mode-only branches (this is a
 /// clean/purge filter, not an uninstall leftover finder).
+/// macOS only — none of these app-bundle/plist conventions apply on Linux;
+/// `is_critical_deletion_path`'s root-path guard is the Linux equivalent.
+#[cfg(not(target_os = "macos"))]
+pub fn should_protect_path(_path: &Path) -> bool {
+    false
+}
+
+#[cfg(target_os = "macos")]
 pub fn should_protect_path(path: &Path) -> bool {
     let path_str = path.to_string_lossy();
     let lower = path_str.to_lowercase();
@@ -830,6 +888,7 @@ mod tests {
         assert!(!glob_match("com.apple.Settings*", "com.apple.NotSettings"));
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn protects_system_critical_bundle() {
         assert!(should_protect_data("com.apple.finder"));
@@ -837,12 +896,14 @@ mod tests {
         assert!(!should_protect_data("com.example.myrandomapp"));
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn protects_data_sensitive_bundle() {
         assert!(should_protect_data("com.1password.7"));
         assert!(should_protect_data("Claude"));
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn protects_endpoint_security_cache_path() {
         let p = PathBuf::from("/private/var/folders/ab/xyz/C/com.crowdstrike.falcon/cache");
@@ -851,6 +912,7 @@ mod tests {
         assert!(!is_endpoint_security_cache_path(&p2));
     }
 
+    #[cfg(target_os = "macos")]
     #[test]
     fn protects_critical_roots() {
         assert!(is_critical_deletion_path(Path::new("/System")));
@@ -860,6 +922,19 @@ mod tests {
         assert!(!is_critical_deletion_path(Path::new("/usr/local/bin")));
     }
 
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn protects_critical_roots_linux() {
+        assert!(is_critical_deletion_path(Path::new("/")));
+        assert!(is_critical_deletion_path(Path::new("/etc")));
+        assert!(is_critical_deletion_path(Path::new("/etc/passwd")));
+        assert!(is_critical_deletion_path(Path::new("/usr/bin")));
+        assert!(is_critical_deletion_path(Path::new("/home/alice")));
+        assert!(!is_critical_deletion_path(Path::new("/home/alice/Documents")));
+        assert!(!is_critical_deletion_path(Path::new("/home/alice/.cache")));
+    }
+
+    #[cfg(target_os = "macos")]
     #[test]
     fn protects_container_bundle_id() {
         let p = PathBuf::from("/Users/alice/Library/Containers/com.1password.7/Data/foo");

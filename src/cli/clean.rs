@@ -52,7 +52,6 @@ pub async fn run_clean(
     let (file_items, docker_info) = gather_items(&category);
 
     // Filter by min_size and exclude SystemCritical
-    #[cfg(target_os = "macos")]
     let whitelist = crate::core::protection::load_whitelist();
 
     let filtered: Vec<FileInfo> = file_items
@@ -60,13 +59,8 @@ pub async fn run_clean(
         .filter(|f| f.safety != SafetyLevel::SystemCritical)
         .filter(|f| f.size_bytes >= min_bytes)
         .filter(|f| {
-            #[cfg(target_os = "macos")]
-            {
-                use crate::core::protection;
-                return protection::is_safe_to_delete(&f.path) && !protection::is_path_whitelisted(&f.path, &whitelist);
-            }
-            #[cfg(not(target_os = "macos"))]
-            true
+            use crate::core::protection;
+            protection::is_safe_to_delete(&f.path) && !protection::is_path_whitelisted(&f.path, &whitelist)
         })
         .collect();
 

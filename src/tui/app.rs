@@ -24,6 +24,9 @@ pub struct CategoryRow {
     pub label: &'static str,
     pub path: PathBuf,
     pub size_bytes: Option<u64>,
+    /// Running total while `size_bytes` is still `None` — lets the row show a
+    /// live-growing size instead of a static "pending..." during its scan.
+    pub running_bytes: u64,
 }
 
 pub struct CategoriesScreen {
@@ -69,7 +72,7 @@ impl App {
     pub fn new_categories() -> Self {
         let rows = analyze_presets::presets()
             .into_iter()
-            .map(|Preset { label, path }| CategoryRow { label, path, size_bytes: None })
+            .map(|Preset { label, path }| CategoryRow { label, path, size_bytes: None, running_bytes: 0 })
             .collect();
         let mut screen = CategoriesScreen { rows, selected: 0, scanning: None, next_to_scan: 0 };
         screen.start_next_scan();
@@ -124,10 +127,13 @@ impl CategoriesScreen {
         let Some((idx, handle)) = &self.scanning else { return };
         let mut finished = false;
         while let Some(event) = handle.try_recv() {
-            if let ScanEvent::Done(items) = event {
-                let total: u64 = items.iter().map(|f| f.size_bytes).sum();
-                self.rows[*idx].size_bytes = Some(total);
-                finished = true;
+            match event {
+                ScanEvent::Entry(info) => self.rows[*idx].running_bytes += info.size_bytes,
+                ScanEvent::Done(items) => {
+                    let total: u64 = items.iter().map(|f| f.size_bytes).sum();
+                    self.rows[*idx].size_bytes = Some(total);
+                    finished = true;
+                }
             }
         }
         if finished {
@@ -163,13 +169,15 @@ impl BrowserScreen {
         let Some(scan) = &self.scan else { return };
         while let Some(event) = scan.try_recv() {
             match event {
-                ScanEvent::Entry(size, is_dir) => {
-                    self.status.bytes += size;
-                    if is_dir {
+                ScanEvent::Entry(info) => {
+                    self.status.bytes += info.size_bytes;
+                    if info.is_dir {
                         self.status.dirs += 1;
                     } else {
                         self.status.files += 1;
                     }
+                    self.entries.push(info);
+                    self.entries.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
                 }
                 ScanEvent::Done(items) => {
                     self.entries = items;

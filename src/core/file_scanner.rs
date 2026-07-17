@@ -46,11 +46,12 @@ impl FileScanner {
     /// total kalau dijalankan sekuensial). Berhenti lebih awal kalau `cancel`
     /// `true` di tengah scan (dipakai TUI analyze saat user pindah direktori
     /// sebelum scan folder besar sebelumnya selesai). `on_entry` dipanggil tiap
-    /// entry selesai dengan (nama, ukuran, is_dir) — dipakai untuk progress live.
+    /// entry selesai dengan `FileInfo`-nya — dipakai untuk streaming list live
+    /// di TUI browser, bukan cuma progress counter.
     pub fn scan_depth1(
         root: &Path,
         cancel: &AtomicBool,
-        on_entry: impl Fn(&str, u64, bool) + Sync,
+        on_entry: impl Fn(FileInfo) + Sync,
     ) -> Vec<FileInfo> {
         let Ok(entries) = std::fs::read_dir(root) else {
             return Vec::new();
@@ -75,8 +76,9 @@ impl FileScanner {
                         if cancel.load(Ordering::Relaxed) {
                             return None;
                         }
-                        on_entry(&name, size, is_dir);
-                        Some(FileInfo::new(name, path, size, is_dir))
+                        let info = FileInfo::new(name, path, size, is_dir);
+                        on_entry(info.clone());
+                        Some(info)
                     })
                 })
                 .collect();

@@ -18,7 +18,13 @@ pub fn draw(frame: &mut Frame, area: Rect, screen: &CategoriesScreen) {
 
     let table_area = Rect { y: area.y + 2, height: area.height.saturating_sub(2), ..area };
 
-    let max_size = screen.rows.iter().filter_map(|r| r.size_bytes).max().unwrap_or(1).max(1);
+    let max_size = screen
+        .rows
+        .iter()
+        .map(|r| r.size_bytes.unwrap_or(r.running_bytes))
+        .max()
+        .unwrap_or(1)
+        .max(1);
 
     let rows: Vec<Row> = screen
         .rows
@@ -39,6 +45,14 @@ pub fn draw(frame: &mut Frame, area: Rect, screen: &CategoriesScreen) {
                         format!("{:.1}%", pct * 100.0)
                     };
                     (bar, pct_text, format_size(bytes))
+                }
+                // Still scanning: show the running total growing live, bar in a
+                // dimmer fill so it reads as "in progress" not a final result.
+                None if row.running_bytes > 0 => {
+                    let pct = row.running_bytes as f64 / max_size as f64;
+                    let filled = (pct * BAR_WIDTH as f64).round() as usize;
+                    let bar = format!("{}{}", "░".repeat(filled), "▒".repeat(BAR_WIDTH - filled));
+                    (bar, "...".to_string(), format!("{}...", format_size(row.running_bytes)))
                 }
                 None => (String::new(), "--".to_string(), "pending...".to_string()),
             };

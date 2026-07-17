@@ -45,20 +45,14 @@ pub async fn run_purge(
     let candidates = spin("Scanning projects", move || purge_scanner::scan(&search_paths, RECENT_THRESHOLD_DAYS));
     println!("{}", format_size(candidates.iter().map(|c| c.artifact.size_bytes).sum::<u64>()).cyan());
 
-    #[cfg(target_os = "macos")]
     let whitelist = crate::core::protection::load_whitelist();
 
     let filtered: Vec<PurgeCandidate> = candidates
         .into_iter()
         .filter(|c| c.artifact.size_bytes >= min_bytes)
         .filter(|c| {
-            #[cfg(target_os = "macos")]
-            {
-                use crate::core::protection;
-                return protection::is_safe_to_delete(&c.artifact.path) && !protection::is_path_whitelisted(&c.artifact.path, &whitelist);
-            }
-            #[cfg(not(target_os = "macos"))]
-            true
+            use crate::core::protection;
+            protection::is_safe_to_delete(&c.artifact.path) && !protection::is_path_whitelisted(&c.artifact.path, &whitelist)
         })
         .collect();
 

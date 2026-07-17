@@ -34,6 +34,14 @@ pub fn presets() -> Vec<Preset> {
         Preset { label: "JetBrains Cache", path: home.join("Library/Caches/JetBrains") },
         #[cfg(target_os = "macos")]
         Preset { label: "Docker Data", path: home.join("Library/Containers/com.docker.docker") },
+        #[cfg(target_os = "linux")]
+        Preset { label: "User Cache", path: home.join(".cache") },
+        #[cfg(target_os = "linux")]
+        Preset { label: "Config", path: home.join(".config") },
+        #[cfg(target_os = "linux")]
+        Preset { label: "Local Share", path: home.join(".local/share") },
+        #[cfg(target_os = "linux")]
+        Preset { label: "Trash", path: home.join(".local/share/Trash") },
     ];
 
     if let Some(paths) = paths {

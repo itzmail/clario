@@ -7,9 +7,9 @@ use std::sync::Arc;
 
 /// One update from a background scan thread, consumed by the UI event loop.
 pub enum ScanEvent {
-    /// One depth-1 entry finished: (size_bytes, is_dir) — bumps the live
-    /// "files/dirs/bytes scanned" counters in ScanStatus.
-    Entry(u64, bool),
+    /// One depth-1 entry finished — streamed to the UI as soon as it's sized,
+    /// so the browser list fills in live instead of waiting for the whole scan.
+    Entry(FileInfo),
     /// Scan finished; final sorted depth-1 breakdown.
     Done(Vec<FileInfo>),
 }
@@ -45,8 +45,8 @@ pub fn spawn_scan(root: &Path) -> ScanHandle {
 
     std::thread::spawn(move || {
         let tx_entry = tx.clone();
-        let items = FileScanner::scan_depth1(&root, &cancel_thread, |_name, size, is_dir| {
-            tx_entry.send(ScanEvent::Entry(size, is_dir)).ok();
+        let items = FileScanner::scan_depth1(&root, &cancel_thread, |info| {
+            tx_entry.send(ScanEvent::Entry(info)).ok();
         });
         if !cancel_thread.load(Ordering::Relaxed) {
             tx.send(ScanEvent::Done(items)).ok();
@@ -61,7 +61,7 @@ pub fn spawn_scan(root: &Path) -> ScanHandle {
 /// not the live browser screen.
 pub fn preview_top_n(root: &Path, n: usize) -> Vec<FileInfo> {
     let cancel = AtomicBool::new(false);
-    let mut items = FileScanner::scan_depth1(root, &cancel, |_, _, _| {});
+    let mut items = FileScanner::scan_depth1(root, &cancel, |_| {});
     items.truncate(n);
     items
 }

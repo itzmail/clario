@@ -180,15 +180,8 @@ fn selected_paths(screen: &app::BrowserScreen) -> Vec<PathBuf> {
     }
 }
 
-fn is_safe_to_delete(_path: &std::path::Path) -> bool {
-    #[cfg(target_os = "macos")]
-    {
-        crate::core::protection::is_safe_to_delete(_path)
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        true
-    }
+fn is_safe_to_delete(path: &std::path::Path) -> bool {
+    crate::core::protection::is_safe_to_delete(path)
 }
 
 fn start_delete(screen: &mut app::BrowserScreen) {
