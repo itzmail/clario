@@ -1,21 +1,25 @@
 # Clario
 
-Clario is a terminal-based system cleaner (TUI) built with Rust. It is designed as a fast, keyboard-driven cleanup utility inspired by desktop cleaner apps.
+Clario is a fast, keyboard-driven CLI for cleaning developer caches, build artifacts, and system clutter. Inspired by Mole — subcommand-driven, with an interactive TUI for the `analyze` disk browser.
 
 ## Features
 
-- Dashboard for quick system overview.
-- File Manager to scan cleanup targets (cache, temp, logs).
-- App Uninstaller to detect installed apps and remove related files.
-- Process Monitor to inspect and manage running processes.
-- Settings page for theme and safety preferences.
+- `clean` — clean per-language dev caches (Cargo, Node, Go, Python, Java, Ruby), Docker, app caches, and Trash.
+- `purge` — sweep `node_modules`, `target`, `dist`, and other build artifacts across all your projects.
+- `uninstall` — remove an application and its leftover files.
+- `analyze` — interactive TUI to browse a directory and drill into what's taking up space.
+- `update` — self-update to the latest release.
+
+Safety: `clean`/`purge`/`analyze` delete operations are filtered through a critical-path guard (never touches system roots or, on macOS, protected app bundles) plus a user-defined whitelist at `~/.config/clario/whitelist`.
 
 ## Tech Stack
 
 - Rust 2021
-- `ratatui` + `crossterm` for terminal UI
-- `tokio` for async runtime
-- `sysinfo`, `walkdir`, `serde`, `anyhow` for scanning, models, and error handling
+- `ratatui` + `crossterm` for the `analyze` TUI
+- `tokio` + `reqwest` for async and self-update
+- `walkdir`, `clap`, `serde`, `anyhow` for scanning, CLI parsing, models, and error handling
+
+Supported platforms: macOS (x86_64, aarch64) and Linux (x86_64, aarch64).
 
 ## Installation
 
@@ -55,24 +59,34 @@ Run with:
 
 ## Usage
 
-After installation, start Clario with:
-
 ```bash
-clario
+clario <COMMAND>
 ```
 
-Basic hotkeys:
+Commands:
 
-- `d` go to Dashboard
-- `f` go to File Manager
-- `u` go to App Uninstaller
-- `p` go to Process Monitor
-- `s` go to Settings
-- `q` quit or open exit confirmation (depends on current mode)
+- `clario clean [cargo|node|go|python|java|ruby|docker|cache|trash]` — clean dev caches (all categories if none given). `--dry-run`, `--force`, `--min-size`.
+- `clario purge` — sweep build artifacts across all projects. `--dry-run`, `--force`, `--min-size`, `--include-recent`, `--paths`.
+- `clario uninstall [NAME]` — remove an app and its leftovers. `--list`, `--dry-run`, `--force`.
+- `clario analyze [PATH]` — open the interactive disk-usage TUI (defaults to home).
+- `clario update` — check for and install the latest release.
+
+Run `clario <command> --help` for full options.
+
+### Analyze TUI keys
+
+- `↑↓` / `j k` — move selection
+- `Enter` — open directory
+- `Space` — multi-select
+- `o` — open with system default app
+- `p` — preview file/directory contents
+- `Backspace` — delete selected (guarded by the safety filter)
+- `Esc` — go up a level / back to categories
+- `q` — quit
 
 ## Uninstall
 
-To remove Clario and its local data:
+To remove Clario itself and its local config:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/itzmail/clario/main/uninstall.sh | bash
@@ -83,9 +97,12 @@ curl -fsSL https://raw.githubusercontent.com/itzmail/clario/main/uninstall.sh | 
 ```text
 clario/
 ├── src/
+│   ├── cli/       # subcommand entry points (clean, purge, uninstall, analyze, update)
+│   ├── core/      # scanners, protection guard, presets
+│   ├── tui/       # analyze TUI (ratatui)
+│   ├── models/    # shared data types
+│   └── utils/     # paths, sizing, platform helpers
 ├── Cargo.toml
-├── PLAN.md
-├── AGENTS.md
 ├── install.sh
 └── uninstall.sh
 ```

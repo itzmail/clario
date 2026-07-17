@@ -1,6 +1,6 @@
 [package]
 name = "clario"
-version = "0.1.5"
+version = "0.2.0"
 edition = "2021"
 authors = ["Ismail Nur Alam <ismailnuralam@gmail.com>"]
 description = "Fast CLI for cleaning dev caches and build artifacts"
