@@ -7,6 +7,35 @@ use colored::Colorize;
 use dialoguer::MultiSelect;
 use std::io::{self, IsTerminal, Write};
 
+/// Distinguishes a permission-denied delete failure (candidate for sudo retry)
+/// from every other failure kind (path gone, filesystem error, etc.), which is
+/// reported as failed and dropped, matching pre-existing behavior.
+enum DeleteError {
+    PermissionDenied(String),
+    Other(String),
+}
+
+impl DeleteError {
+    fn from_io(e: io::Error) -> Self {
+        if e.kind() == io::ErrorKind::PermissionDenied {
+            DeleteError::PermissionDenied(e.to_string())
+        } else {
+            DeleteError::Other(e.to_string())
+        }
+    }
+
+    fn from_trash(e: trash::Error) -> Self {
+        match &e {
+            #[cfg(all(unix, not(target_os = "macos"), not(target_os = "ios"), not(target_os = "android")))]
+            trash::Error::FileSystem { source, .. } if source.kind() == io::ErrorKind::PermissionDenied => {
+                DeleteError::PermissionDenied(e.to_string())
+            }
+            trash::Error::CouldNotAccess { .. } => DeleteError::PermissionDenied(e.to_string()),
+            _ => DeleteError::Other(e.to_string()),
+        }
+    }
+}
+
 /// Recently modified projects are excluded from `clean`'s project-artifact scan by
 /// default, matching `purge`'s safety guard (someone actively working in a project
 /// shouldn't have node_modules/target vanish mid-session).
@@ -119,21 +148,23 @@ pub async fn run_clean(
 
     // Delete files
     let mut freed: u64 = 0;
+    let mut perm_failed: Vec<&FileInfo> = Vec::new();
     for item in &to_delete {
         let path = item.path.clone();
         let is_trash_item = item.category == FileCategory::Trash;
         let is_dir = item.is_dir;
         // Trash items are already in the Trash — delete them permanently instead of
         // re-trashing (trash::delete on a Trash entry would just nest it deeper).
-        let result = spin(&format!("Removing {}", path.display()), move || {
+        let result: Result<(), DeleteError> = spin(&format!("Removing {}", path.display()), move || {
             if is_trash_item {
-                if is_dir {
+                let r = if is_dir {
                     std::fs::remove_dir_all(&path)
                 } else {
                     std::fs::remove_file(&path)
-                }
+                };
+                r.map_err(DeleteError::from_io)
             } else {
-                trash::delete(&path).map_err(|e| io::Error::other(e.to_string()))
+                trash::delete(&path).map_err(DeleteError::from_trash)
             }
         });
         match result {
@@ -141,7 +172,13 @@ pub async fn run_clean(
                 freed += item.size_bytes;
                 println!("{}", "done".green());
             }
-            Err(e) => println!("{} ({})", "failed".red(), e),
+            Err(DeleteError::PermissionDenied(msg)) => {
+                println!("{} ({})", "failed".red(), msg);
+                perm_failed.push(item);
+            }
+            Err(DeleteError::Other(msg)) => {
+                println!("{} ({})", "failed".red(), msg);
+            }
         }
     }
 
