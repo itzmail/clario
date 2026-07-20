@@ -230,6 +230,20 @@ pub async fn run_clean(
         }
     }
 
+    if sudo_recovered_count > 0 {
+        println!(
+            "{} {} item(s)",
+            "Recovered via sudo:".bold(),
+            sudo_recovered_count
+        );
+    }
+    if !perm_failed.is_empty() {
+        println!(
+            "{} {} item(s) — rerun with sudo to retry",
+            "Skipped (permission):".yellow(),
+            perm_failed.len()
+        );
+    }
     println!("\n{} {}", "Freed:".bold(), format_size(freed).green().bold());
     Ok(())
 }
