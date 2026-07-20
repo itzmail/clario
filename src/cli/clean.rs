@@ -182,6 +182,40 @@ pub async fn run_clean(
         }
     }
 
+    // Offer a single batched sudo retry for permission-denied items. Only when a
+    // TTY is present — non-interactive runs (piped stdin, CI) skip straight to
+    // reporting them as skipped in the summary below.
+    let mut sudo_recovered_count = 0usize;
+    if !perm_failed.is_empty() && io::stdin().is_terminal() {
+        println!(
+            "\n{} {}",
+            format!("{} item(s) failed due to permission", perm_failed.len()).yellow(),
+            "— likely owned by root.".dimmed()
+        );
+        print!("{}", "Retry with sudo? [y/N] ".bold());
+        io::stdout().flush()?;
+        let mut input = String::new();
+        io::stdin().read_line(&mut input)?;
+        if input.trim().eq_ignore_ascii_case("y") {
+            let paths: Vec<std::path::PathBuf> = perm_failed.iter().map(|f| f.path.clone()).collect();
+            let status = spin("Retrying with sudo", move || {
+                std::process::Command::new("sudo").arg("rm").arg("-rf").args(&paths).status()
+            });
+            match status {
+                Ok(s) if s.success() => {
+                    // Capture the count before draining — perm_failed.len() would be 0
+                    // after drain(..) consumes it.
+                    sudo_recovered_count = perm_failed.len();
+                    for item in perm_failed.drain(..) {
+                        freed += item.size_bytes;
+                    }
+                    println!("{}", "done".green());
+                }
+                _ => println!("{}", "failed".red()),
+            }
+        }
+    }
+
     // Docker cleanup
     if docker_info.is_some() {
         let status = spin("Running docker system prune", || {
